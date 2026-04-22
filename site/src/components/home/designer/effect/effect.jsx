@@ -34,16 +34,18 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
                 onDragStart={e => onDragStart(e, effectIndex)}
                 onDragOver={e => onDragOver(e, effectIndex)}
             >
+                {/* NOW PLAYING badge sits on the top border when active */}
+                {selected && <span className="ec-active-badge">NOW PLAYING</span>}
+
                 {/* Name row + gear */}
                 <div className="ec-header">
                     <span className="ec-name" title={effect.name}>{effect.name}</span>
-                    {selected && <span className="ec-active-badge">NOW PLAYING</span>}
                     <button className="icon-btn" style={{width:22,height:22,flexShrink:0}} onClick={() => setCfgOpen(true)} title="Settings">
                         <Icon name="settings" size={13} />
                     </button>
                 </div>
 
-                {/* Action row */}
+                {/* Action row / progress */}
                 <div className="ec-body">
                     {selected ? (
                         pinnedEffect

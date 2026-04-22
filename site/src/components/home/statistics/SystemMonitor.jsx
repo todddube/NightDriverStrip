@@ -13,7 +13,7 @@ const fmtTime = s => s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`;
 // SVG uses viewBox "0 0 100 CH" + preserveAspectRatio="none"
 // x coords 0-100 stretch to fill column width; y coords are CSS pixels
 // vector-effect keeps stroke at 1.5px regardless of scale
-const CH = 34; // chart height px
+const CH = 26; // chart height px
 
 const Sparkline = ({ data, color, labelFmt, fixedMax = null, refreshRate = 3 }) => {
     if (!data || data.length < 2) return <div className="spark-outer" />;
@@ -102,22 +102,11 @@ const SystemMonitor = ({ raw, heapSize, dmaSize, psRamSize, fsSize, fsUsed, code
     const heapPct  = heapSize  > 0 ? (heapUsed / heapSize)  * 100 : 0;
     const dmaPct   = dmaSize   > 0 ? (dmaUsed  / dmaSize)   * 100 : 0;
     const psrPct   = psRamSize > 0 ? (psrUsed  / psRamSize) * 100 : 0;
-    const fsPct    = fsSize    > 0 ? (fsUsed   / fsSize)    * 100 : 0;
-    const flashPct = flashSize > 0 ? (codeSize / flashSize) * 100 : 0;
+    const histC0   = useHistory(c0,      maxSamples);
+    const histHeap = useHistory(heapUsed, maxSamples);
 
-    const histC0   = useHistory(c0,               maxSamples);
-    const histHeap = useHistory(heapUsed,          maxSamples);
-    const histLed  = useHistory(raw.LED_FPS ?? 0, maxSamples);
-
-    const cpuColor  = pct => pct > 80 ? '#f85149' : pct > 60 ? '#d29922' : 'var(--cstroke)';
-    const memColor  = pct => pct > 85 ? '#f85149' : pct > 70 ? '#d29922' : 'var(--cmstroke)';
-    const storColor = pct => pct > 90 ? '#f85149' : pct > 75 ? '#d29922' : 'var(--text-dim)';
-
-    const fpsSrc = [
-        { label: 'LED',    value: raw.LED_FPS    ?? 0, color: 'var(--green)'    },
-        { label: 'SERIAL', value: raw.SERIAL_FPS ?? 0, color: 'var(--text-dim)' },
-        { label: 'AUDIO',  value: raw.AUDIO_FPS  ?? 0, color: 'var(--accent)'   },
-    ];
+    const cpuColor = pct => pct > 80 ? '#f85149' : pct > 60 ? '#d29922' : 'var(--cstroke)';
+    const memColor = pct => pct > 85 ? '#f85149' : pct > 70 ? '#d29922' : 'var(--cmstroke)';
 
     return (
         <div className="sysmon">
@@ -160,52 +149,6 @@ const SystemMonitor = ({ raw, heapSize, dmaSize, psRamSize, fsSize, fsUsed, code
                 </div>
             </div>
 
-            {/* ── Storage ── */}
-            <div className="sysmon-col">
-                <div className="sysmon-title">Storage</div>
-                {flashSize > 0 && (
-                    <div className="sysmon-row">
-                        <span className="sm-lbl">FW</span>
-                        <Bar pct={flashPct} color={storColor(flashPct)} />
-                        <span className="sm-val" title={`${fmtBytes(codeSize)} / ${fmtBytes(flashSize)}`}>
-                            {fmtBytes(codeSize)}
-                        </span>
-                    </div>
-                )}
-                {fsSize > 0 && (
-                    <div className="sysmon-row">
-                        <span className="sm-lbl">FS</span>
-                        <Bar pct={fsPct} color={storColor(fsPct)} />
-                        <span className="sm-val" title={`${fmtBytes(fsUsed)} / ${fmtBytes(fsSize)}`}>
-                            {fmtBytes(fsUsed)}
-                        </span>
-                    </div>
-                )}
-                {flashSize === 0 && fsSize === 0 && (
-                    <div style={{fontSize:10,color:'var(--text-dim)',padding:'4px 0'}}>—</div>
-                )}
-            </div>
-
-            {/* ── NightDriver FPS ── */}
-            <div className="sysmon-col">
-                <div className="sysmon-title">NightDriver</div>
-                <div className="fps-grid">
-                    {fpsSrc.map(({ label, value, color }) => (
-                        <div key={label} className="fps-row">
-                            <span className="fps-lbl">{label}</span>
-                            <div style={{ display:'flex', alignItems:'baseline', gap:2 }}>
-                                <span className="fps-num" style={{ color }}>{value}</span>
-                                <span className="fps-unit">fps</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <div className="sm-sparkline">
-                    <Sparkline data={histLed} color="var(--green)"
-                        labelFmt={v => `${Math.round(v)}`}
-                        refreshRate={refreshRate} />
-                </div>
-            </div>
         </div>
     );
 };

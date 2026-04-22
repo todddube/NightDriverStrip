@@ -9,7 +9,7 @@ import httpPrefix from '../../../espaddr';
 const moveUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/moveEffect`;
 
 const DesignerPanel = ({ open, addNotification }) => {
-    const { pinnedEffect, activeInterval, sync, effects } = useContext(EffectsContext);
+    const { pinnedEffect, activeInterval, sync, effects, currentEffect } = useContext(EffectsContext);
     const [editing,      setEditing]      = useState(false);
     const [pendingInt,   setPendingInt]   = useState(Math.floor(activeInterval / 1000));
     const [requestRunning, setRunning]    = useState(false);
@@ -21,13 +21,17 @@ const DesignerPanel = ({ open, addNotification }) => {
         const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
         return c.showDisabled !== undefined ? c.showDisabled : true;
     });
+    const [shuffle,    setShuffle]    = useState(() => {
+        const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
+        return c.shuffle !== undefined ? c.shuffle : false;
+    });
     const [dragging,  setDragging]  = useState(undefined);
     const [dropTarget, setDropTarget] = useState(undefined);
 
     useEffect(() => { setPendingInt(Math.floor(activeInterval / 1000)); }, [activeInterval]);
     useEffect(() => {
-        localStorage.setItem('designerConfig', JSON.stringify({ gridLayout, showDisabled }));
-    }, [gridLayout, showDisabled]);
+        localStorage.setItem('designerConfig', JSON.stringify({ gridLayout, showDisabled, shuffle }));
+    }, [gridLayout, showDisabled, shuffle]);
 
     const req = (url, opts, op) =>
         fetch(url, opts).catch(err => { addNotification('Error', op, url, err); throw err; });
@@ -47,6 +51,18 @@ const DesignerPanel = ({ open, addNotification }) => {
     };
 
     const navigate = up => {
+        if (shuffle && up && effects) {
+            const candidates = effects
+                .map((e, i) => i)
+                .filter(i => effects[i].enabled && i !== currentEffect);
+            if (candidates.length > 0) {
+                const idx = candidates[Math.floor(Math.random() * candidates.length)];
+                setRunning(true);
+                return req(`${httpPrefix !== undefined ? httpPrefix : ""}/currentEffect`,
+                    { method: 'POST', body: new URLSearchParams({ currentEffectIndex: idx }) }, 'navigate')
+                    .then(sync).finally(() => setRunning(false));
+            }
+        }
         setRunning(true);
         return req(`${httpPrefix !== undefined ? httpPrefix : ""}/${up ? 'nextEffect' : 'previousEffect'}`,
             { method: 'POST' }, 'navigate')
@@ -96,15 +112,22 @@ const DesignerPanel = ({ open, addNotification }) => {
                 </div>
                 <Countdown label="Remaining" />
                 {effects.length > 1 && (
-                    <div style={{display:'flex'}}>
-                        <button className="icon-btn" disabled={requestRunning} onClick={() => navigate(false)} title="Previous">
-                            <Icon name="skip_prev" />
+                    <div style={{display:'flex', alignItems:'center', gap:2}}>
+                        <button className="nav-icon-btn" disabled={requestRunning} onClick={() => navigate(false)} title="Previous">
+                            <Icon name="skip_prev" size={18} />
+                            <span className="nav-icon-label">Back</span>
                         </button>
-                        <button className="icon-btn" disabled={requestRunning} onClick={() => navigate(true)} title="Next">
-                            <Icon name="skip_next" />
+                        <button className="nav-icon-btn" disabled={requestRunning} onClick={() => navigate(true)} title="Next">
+                            <Icon name="skip_next" size={18} />
+                            <span className="nav-icon-label">Next</span>
                         </button>
-                        <button className="icon-btn" disabled={requestRunning} onClick={() => sync()} title="Refresh">
-                            <Icon name="refresh" />
+                        <button className="nav-icon-btn" disabled={requestRunning} onClick={() => sync()} title="Refresh">
+                            <Icon name="refresh" size={18} />
+                            <span className="nav-icon-label">Refresh</span>
+                        </button>
+                        <button className={`nav-icon-btn${shuffle ? ' active' : ''}`} onClick={() => setShuffle(v => !v)} title="Shuffle">
+                            <Icon name="shuffle" size={18} />
+                            <span className="nav-icon-label">Shuffle</span>
                         </button>
                     </div>
                 )}

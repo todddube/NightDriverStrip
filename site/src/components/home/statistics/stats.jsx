@@ -43,6 +43,13 @@ const StatsPanel = ({ open, addNotification }) => {
         { key: 'Code',   val: fmtBytes(codeSize) },
         { key: 'Free',   val: fmtBytes(codeFree) },
         ...(buildInfo ? [{ key: 'Last Updated', val: buildInfo }] : []),
+        ...(flashSize > 0 ? [{ key: 'Firmware',    val: `${fmtBytes(codeSize)} / ${fmtBytes(flashSize)}` }] : []),
+        ...(fsSize    > 0 ? [{ key: 'Filesystem',  val: `${fmtBytes(fsUsed)} / ${fmtBytes(fsSize)}` }] : []),
+        ...(rawData   ? [
+            { key: 'LED',    val: `${rawData.LED_FPS    ?? 0} fps` },
+            { key: 'Serial', val: `${rawData.SERIAL_FPS ?? 0} fps` },
+            { key: 'Audio',  val: `${rawData.AUDIO_FPS  ?? 0} fps` },
+        ] : []),
     ];
 
     return (

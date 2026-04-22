@@ -29,6 +29,7 @@
 //---------------------------------------------------------------------------
 
 #include "globals.h"
+#include "build_timestamp.h"
 
 #if ENABLE_WEBSERVER
 
@@ -305,7 +306,7 @@ void CWebServer::GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType 
         j["CODE_FREE"]             = _staticStats.FreeSketchSpace;
         j["FS_SIZE"]               = SPIFFS.totalBytes();
         j["FS_USED"]               = SPIFFS.usedBytes();
-        j["BUILD_INFO"]            = __DATE__ " " __TIME__;
+        j["BUILD_INFO"]            = BUILD_TIMESTAMP;
     }
 
     if ((statsType & StatisticsType::Dynamic) != StatisticsType::None)
