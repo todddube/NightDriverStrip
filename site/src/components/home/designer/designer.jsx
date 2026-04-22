@@ -130,12 +130,15 @@ const DesignerPanel = ({ open, addNotification }) => {
                     }
                 }}
             >
-                {effects.map((effect, idx) =>
-                    (effect.enabled || showDisabled) && (
+                {effects
+                    .map((effect, idx) => ({ ...effect, origIdx: idx }))
+                    .filter(effect => effect.enabled || showDisabled)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(effect => (
                         <Effect
-                            key={`effect-${idx}`}
+                            key={`effect-${effect.origIdx}`}
                             effect={effect}
-                            effectIndex={idx}
+                            effectIndex={effect.origIdx}
                             navigateTo={navigateTo}
                             requestRunning={requestRunning}
                             effectEnable={effectEnable}
@@ -143,8 +146,8 @@ const DesignerPanel = ({ open, addNotification }) => {
                             onDragStart={(e, i) => { setDragging(i); e.dataTransfer.setData('index', i); }}
                             onDragOver={(e, i) => { e.preventDefault(); if (i !== undefined) setDropTarget(i); }}
                         />
-                    )
-                )}
+                    ))
+                }
             </div>
         </div>
     );

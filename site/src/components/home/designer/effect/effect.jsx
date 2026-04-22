@@ -37,6 +37,7 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
                 {/* Name row + gear */}
                 <div className="ec-header">
                     <span className="ec-name" title={effect.name}>{effect.name}</span>
+                    {selected && <span className="ec-active-badge">NOW PLAYING</span>}
                     <button className="icon-btn" style={{width:22,height:22,flexShrink:0}} onClick={() => setCfgOpen(true)} title="Settings">
                         <Icon name="settings" size={13} />
                     </button>

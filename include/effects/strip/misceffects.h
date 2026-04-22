@@ -294,10 +294,11 @@ class ColorFillEffect : public EffectWithId<ColorFillEffect>
 
 // SplashLogoEffect
 //
-// Displays the NightDriver logo on the screen
+// Displays the NightDriver logo on the screen with build date and repo info
 
 extern const uint8_t logo_start[] asm("_binary_assets_bmp_lowreslogo_jpg_start");
 extern const uint8_t logo_end[]   asm("_binary_assets_bmp_lowreslogo_jpg_end");
+extern const GFXfont Apple5x7 PROGMEM;
 
 class SplashLogoEffect : public EffectWithId<SplashLogoEffect>
 {
@@ -323,7 +324,7 @@ class SplashLogoEffect : public EffectWithId<SplashLogoEffect>
 
     virtual size_t MaximumEffectTime() const override
     {
-        return 5.0 * MILLIS_PER_SECOND;
+        return 10.0 * MILLIS_PER_SECOND;
     }
 
     bool CanDisplayVUMeter() const override
@@ -333,9 +334,37 @@ class SplashLogoEffect : public EffectWithId<SplashLogoEffect>
 
     void Draw() override
     {
+        static const int fontW = 5;
+        static const int fontH = 7;
+        static const int textRows = fontH * 2 + 2;   // two text lines + padding
+
         fillSolidOnAllChannels(CRGB::Black);
-        if (JDR_OK != TJpgDec.drawJpg(0, 0, logo.contents, logo.length))        // Draw the image
+        if (JDR_OK != TJpgDec.drawJpg(0, 0, logo.contents, logo.length))
             debugW("Could not display logo");
+
+        // Dim the bottom rows so text is readable over the logo
+        for (int x = 0; x < MATRIX_WIDTH; x++)
+            for (int y = MATRIX_HEIGHT - textRows; y < MATRIX_HEIGHT; y++)
+                if (g()->isValidPixel(x, y))
+                    g()->leds[XY(x, y)].fadeToBlackBy(200);
+
+        g()->setFont(&Apple5x7);
+        g()->setTextWrap(false);
+
+        // Repo URL (upper text line)
+        g()->setTextColor(GFXBase::to16bit(CRGB(120, 120, 200)));
+        g()->setCursor(0, MATRIX_HEIGHT - fontH - 1);
+        g()->print("PlummersSoftwareLLC");
+
+        // Build date centered (bottom text line)
+        const char * buildDate = __DATE__;
+        int dateLen = strlen(buildDate);
+        int dateX = (MATRIX_WIDTH - dateLen * fontW) / 2;
+        g()->setTextColor(GFXBase::to16bit(CRGB(160, 210, 255)));
+        g()->setCursor(dateX, MATRIX_HEIGHT);
+        g()->print(buildDate);
+
+        g()->setFont(nullptr);
     }
 };
 

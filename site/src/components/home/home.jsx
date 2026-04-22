@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useCallback, useContext } from 'react';
 import Icon from '../Icon';
 import { EffectsContext } from '../../context/effectsContext';
 import { StatsContext } from '../../context/statsContext';
@@ -7,6 +7,7 @@ import DesignerPanel from './designer/designer';
 import ConfigDialog from './config/configDialog';
 import PreviewDialog from './designer/colordata/previewDialog';
 import NotificationPanel from './notifications/notifications';
+import SplashScreen from './splash/SplashScreen';
 import httpPrefix from '../../espaddr';
 
 const resetUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/reset`;
@@ -26,9 +27,14 @@ const MainApp = () => {
     const [preview,  setPreview]  = useState(false);
     const [devCtrl,  setDevCtrl]  = useState(null); // anchor element
     const [notifications, setNotifications] = useState([]);
+    const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('splashSeen'));
+    const dismissSplash = useCallback(() => {
+        sessionStorage.setItem('splashSeen', '1');
+        setShowSplash(false);
+    }, []);
 
     const { sync } = useContext(EffectsContext);
-    const { framesSocket } = useContext(StatsContext);
+    const { framesSocket, buildInfo } = useContext(StatsContext);
 
     const toggleTheme = () => {
         const next = theme === 'dark' ? 'light' : 'dark';
@@ -57,12 +63,16 @@ const MainApp = () => {
 
     return (
         <>
+            {showSplash && <SplashScreen onDismiss={dismissSplash} />}
             {/* App bar */}
             <header className={`appbar${drawer ? ' open' : ''}`}>
                 <button className="icon-btn" onClick={() => setDrawer(d => !d)} aria-label="toggle drawer">
                     <Icon name={drawer ? 'chevron_left' : 'menu'} />
                 </button>
-                <span className="appbar-title">NightDriverStrip</span>
+                <span className="appbar-title-group">
+                    <span className="appbar-title">NightDriverStrip</span>
+                    {buildInfo && <span className="appbar-build">{buildInfo}</span>}
+                </span>
                 {notifications.length > 0 &&
                     <NotificationPanel notifications={notifications} clearNotifications={() => setNotifications([])} />
                 }
