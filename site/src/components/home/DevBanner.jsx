@@ -7,9 +7,15 @@ const LOCAL_BUILD = __LOCAL_FIRMWARE_BUILD__;
 const GIT_HASH    = __GIT_HASH__;
 const GIT_DIRTY   = __GIT_DIRTY__;
 
+// Runtime origin detection — evaluated once at module load
+const { hostname } = window.location;
+const IS_LOCALHOST = hostname === 'localhost' || hostname === '127.0.0.1';
+const IS_DEVICE    = /^192\.168\.\d+\.\d+$/.test(hostname) && !IS_LOCALHOST;
+const SHOW_BANNER  = IS_LOCALHOST || IS_DEVICE;
+
 const STEPS = [
-    { key: 'build',  label: '1. Build site',     cmd: 'cd site && npm run build',               endpoint: '/__dev/build'  },
-    { key: 'upload', label: '2. Upload firmware', cmd: 'pio run -e mesmerizer --target upload',  endpoint: '/__dev/upload' },
+    { key: 'build',  label: '1. Build site',     cmd: 'cd site && npm run build',              endpoint: '/__dev/build'  },
+    { key: 'upload', label: '2. Upload firmware', cmd: 'pio run -e mesmerizer --target upload', endpoint: '/__dev/upload' },
 ];
 
 const BTN_LABELS = {
@@ -19,7 +25,7 @@ const BTN_LABELS = {
 
 const DevBanner = () => {
     const { buildInfo } = useContext(StatsContext);
-    const [dismissed,   setDismissed]   = useState(false);
+    const [dismissed,   setDismissed]   = useState(() => sessionStorage.getItem('devBannerDismissed') === LOCAL_BUILD);
     const [copied,      setCopied]      = useState(null);
     const [buildState,  setBuildState]  = useState('idle');   // idle|running|success|error
     const [uploadState, setUploadState] = useState('idle');
@@ -31,11 +37,16 @@ const DevBanner = () => {
         if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
     }, [output]);
 
-    if (!import.meta.env.DEV || dismissed) return null;
+    if (!SHOW_BANNER || dismissed) return null;
 
     const deviceReachable = !!buildInfo;
     const inSync = deviceReachable && buildInfo === LOCAL_BUILD && !GIT_DIRTY;
     const busy   = buildState === 'running' || uploadState === 'running';
+
+    const dismiss = () => {
+        sessionStorage.setItem('devBannerDismissed', LOCAL_BUILD);
+        setDismissed(true);
+    };
 
     const copy = (cmd, key) => {
         navigator.clipboard?.writeText(cmd);
@@ -50,14 +61,13 @@ const DevBanner = () => {
         setShowOutput(true);
         try {
             const res = await fetch(endpoint, { method: 'POST' });
-            if (!res.ok) throw new Error(`Server returned ${res.status} — is the dev server running?`);
+            if (!res.ok) throw new Error(`Server returned ${res.status} — is the Vite dev server running?`);
             const reader = res.body.getReader();
-            const dec = new TextDecoder();
+            const dec    = new TextDecoder();
             let buf = '';
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                // Strip carriage returns — pio uses \r for progress bar updates
                 buf += dec.decode(value, { stream: true }).replace(/\r/g, '');
                 const m = buf.match(/__EXIT_(\d+)__\n?/);
                 if (m) {
@@ -79,6 +89,34 @@ const DevBanner = () => {
         (buildState === 'success' || uploadState === 'success') ? 'dev-terminal--success' : '',
     ].filter(Boolean).join(' ');
 
+    // ── Compact panel when browsing directly from the device ──────────────────
+    if (IS_DEVICE) {
+        return (
+            <div className={`dev-banner dev-banner--compact ${inSync ? 'dev-banner--sync' : 'dev-banner--drift'}`}>
+                <div className="dev-banner-row">
+                    <span className={`dev-status-dot ${inSync ? 'sync' : 'drift'}`} />
+                    <span className="dev-banner-title">
+                        Served from device ({hostname})
+                        {inSync ? ' · firmware up to date' : ' · firmware mismatch'}
+                    </span>
+                    <code className="dev-ver-val" style={{ marginLeft: 8 }}>
+                        {LOCAL_BUILD}
+                        <span className="dev-hash"> ({GIT_HASH})</span>
+                    </code>
+                    {!inSync && buildInfo && (
+                        <code className="dev-ver-val dev-ver-stale" style={{ marginLeft: 4 }}>
+                            → device: {buildInfo}
+                        </code>
+                    )}
+                    <button className="icon-btn dev-dismiss" onClick={dismiss} title="Dismiss">
+                        <Icon name="close" size={14} />
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ── Full panel when running via Vite dev server (localhost) ───────────────
     return (
         <div className={`dev-banner ${inSync ? 'dev-banner--sync' : 'dev-banner--drift'}`}>
 
@@ -87,13 +125,13 @@ const DevBanner = () => {
                 <span className={`dev-status-dot ${inSync ? 'sync' : 'drift'}`} />
                 <span className="dev-banner-title">
                     {!deviceReachable
-                        ? 'Dev mode — device not reachable'
+                        ? `Localhost dev mode — device at ${IS_LOCALHOST ? '192.168.4.36' : hostname} not reachable`
                         : inSync
-                            ? 'Dev mode — device is up to date'
-                            : 'Dev mode — local build not deployed to device'}
+                            ? 'Localhost dev mode — device is up to date'
+                            : 'Localhost dev mode — local build not deployed to device'}
                 </span>
                 {GIT_DIRTY && <span className="dev-badge dirty">uncommitted changes</span>}
-                <button className="icon-btn dev-dismiss" onClick={() => setDismissed(true)} title="Dismiss">
+                <button className="icon-btn dev-dismiss" onClick={dismiss} title="Dismiss">
                     <Icon name="close" size={14} />
                 </button>
             </div>
@@ -124,11 +162,7 @@ const DevBanner = () => {
                         <div key={key} className="dev-cmd-row">
                             <span className="dev-cmd-label">{label}</span>
                             <code className="dev-cmd">{cmd}</code>
-                            <button
-                                className="dev-copy-btn"
-                                onClick={() => copy(cmd, key)}
-                                disabled={busy}
-                            >
+                            <button className="dev-copy-btn" disabled={busy} onClick={() => copy(cmd, key)}>
                                 {copied === key ? '✓ Copied' : 'Copy'}
                             </button>
                             <button
