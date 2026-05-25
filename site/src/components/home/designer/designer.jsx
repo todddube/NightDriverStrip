@@ -5,33 +5,39 @@ import Effect from './effect/effect';
 import { EffectsContext } from '../../../context/effectsContext';
 import { msToTimeDisp } from '../../../util/time';
 import httpPrefix from '../../../espaddr';
+import { getEffectCategory, CATEGORIES } from '../../../util/categories';
 
 const moveUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/moveEffect`;
 
 const DesignerPanel = ({ open, addNotification }) => {
     const { pinnedEffect, activeInterval, sync, effects, currentEffect } = useContext(EffectsContext);
-    const [editing,      setEditing]      = useState(false);
-    const [pendingInt,   setPendingInt]   = useState(Math.floor(activeInterval / 1000));
-    const [requestRunning, setRunning]    = useState(false);
-    const [gridLayout,   setGridLayout]   = useState(() => {
+    const [editing,          setEditing]          = useState(false);
+    const [pendingInt,       setPendingInt]        = useState(Math.floor(activeInterval / 1000));
+    const [requestRunning,   setRunning]           = useState(false);
+    const [search,           setSearch]            = useState('');
+    const [gridLayout,       setGridLayout]        = useState(() => {
         const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
         return c.gridLayout !== undefined ? c.gridLayout : true;
     });
-    const [showDisabled, setShowDisabled] = useState(() => {
+    const [showDisabled,     setShowDisabled]      = useState(() => {
         const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
         return c.showDisabled !== undefined ? c.showDisabled : true;
     });
-    const [shuffle,    setShuffle]    = useState(() => {
+    const [shuffle,          setShuffle]           = useState(() => {
         const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
         return c.shuffle !== undefined ? c.shuffle : false;
     });
-    const [dragging,  setDragging]  = useState(undefined);
+    const [groupByCategory,  setGroupByCategory]   = useState(() => {
+        const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
+        return c.groupByCategory !== undefined ? c.groupByCategory : false;
+    });
+    const [dragging,   setDragging]   = useState(undefined);
     const [dropTarget, setDropTarget] = useState(undefined);
 
     useEffect(() => { setPendingInt(Math.floor(activeInterval / 1000)); }, [activeInterval]);
     useEffect(() => {
-        localStorage.setItem('designerConfig', JSON.stringify({ gridLayout, showDisabled, shuffle }));
-    }, [gridLayout, showDisabled, shuffle]);
+        localStorage.setItem('designerConfig', JSON.stringify({ gridLayout, showDisabled, shuffle, groupByCategory }));
+    }, [gridLayout, showDisabled, shuffle, groupByCategory]);
 
     const req = (url, opts, op) =>
         fetch(url, opts).catch(err => { addNotification('Error', op, url, err); throw err; });
@@ -80,8 +86,24 @@ const DesignerPanel = ({ open, addNotification }) => {
     if (!open) return null;
     if (!effects) return <div className="loading">Loading…</div>;
 
-    const visible = effects.filter((e, i) => e.enabled || showDisabled ? true : false)
-                           .map((e, i) => ({ ...e, origIdx: i }));
+    const searchLower = search.toLowerCase();
+    const sorted = effects
+        .map((effect, idx) => ({ ...effect, origIdx: idx }))
+        .filter(effect =>
+            (effect.enabled || showDisabled) &&
+            (!search || effect.name.toLowerCase().includes(searchLower))
+        )
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    const effectProps = effect => ({
+        key:            `effect-${effect.origIdx}`,
+        effect,
+        effectIndex:    effect.origIdx,
+        navigateTo,
+        requestRunning,
+        effectEnable,
+        gridLayout,
+    });
 
     return (
         <div className="designer-panel">
@@ -110,7 +132,9 @@ const DesignerPanel = ({ open, addNotification }) => {
                         </a>
                     )}
                 </div>
+
                 <Countdown label="Remaining" />
+
                 {effects.length > 1 && (
                     <div style={{display:'flex', alignItems:'center', gap:2}}>
                         <button className="nav-icon-btn" disabled={requestRunning} onClick={() => navigate(false)} title="Previous">
@@ -131,47 +155,94 @@ const DesignerPanel = ({ open, addNotification }) => {
                         </button>
                     </div>
                 )}
+
+                {/* Search */}
+                <div className="search-wrap">
+                    <Icon name="search" size={14} />
+                    <input
+                        className="search-input"
+                        type="text"
+                        placeholder="Filter effects…"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                    />
+                    {search && (
+                        <button className="icon-btn" style={{width:18,height:18,flexShrink:0}} onClick={() => setSearch('')}>
+                            <Icon name="close" size={12} />
+                        </button>
+                    )}
+                </div>
+
                 <div className="flex-grow" />
+
                 <label className="label-sm">
                     <input type="checkbox" checked={showDisabled} onChange={() => setShowDisabled(v => !v)}
                         style={{accentColor:'var(--accent)'}} />
                     Show Disabled
                 </label>
+
+                <button
+                    className={`icon-btn${groupByCategory ? ' active' : ''}`}
+                    onClick={() => setGroupByCategory(v => !v)}
+                    title="Group by category"
+                >
+                    <Icon name="label" />
+                </button>
+
                 <button className="icon-btn" onClick={() => setGridLayout(v => !v)} title="Toggle layout">
                     <Icon name={gridLayout ? 'list_view' : 'grid_view'} />
                 </button>
             </div>
 
-            <div
-                className={gridLayout ? 'effects-grid' : 'effects-list'}
-                onDragOver={e => { e.preventDefault(); setDropTarget(undefined); }}
-                onDrop={e => {
-                    e.preventDefault();
-                    if (dragging !== undefined && dropTarget !== undefined && dragging !== dropTarget) {
-                        fetch(moveUrl, { method: 'POST', body: new URLSearchParams({ effectIndex: dragging, newIndex: dropTarget }) })
-                            .then(() => { setDragging(undefined); setDropTarget(undefined); sync(); });
-                    }
-                }}
-            >
-                {effects
-                    .map((effect, idx) => ({ ...effect, origIdx: idx }))
-                    .filter(effect => effect.enabled || showDisabled)
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map(effect => (
+            {sorted.length === 0 && (
+                <div className="loading">No effects match "{search}"</div>
+            )}
+
+            {groupByCategory ? (
+                <div className="cat-container">
+                    {CATEGORIES.map(cat => {
+                        const catEffects = sorted.filter(e => getEffectCategory(e.name) === cat.id);
+                        if (!catEffects.length) return null;
+                        return (
+                            <div key={cat.id} className="cat-section">
+                                <div className="cat-header">
+                                    <span className="cat-label">{cat.label}</span>
+                                    <span className="cat-count">{catEffects.length}</span>
+                                </div>
+                                <div className={gridLayout ? 'effects-grid' : 'effects-list'}>
+                                    {catEffects.map(effect => (
+                                        <Effect
+                                            {...effectProps(effect)}
+                                            onDragStart={() => {}}
+                                            onDragOver={() => {}}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div
+                    className={gridLayout ? 'effects-grid' : 'effects-list'}
+                    onDragOver={e => { e.preventDefault(); setDropTarget(undefined); }}
+                    onDrop={e => {
+                        e.preventDefault();
+                        if (dragging !== undefined && dropTarget !== undefined && dragging !== dropTarget) {
+                            fetch(moveUrl, { method: 'POST', body: new URLSearchParams({ effectIndex: dragging, newIndex: dropTarget }) })
+                                .then(() => { setDragging(undefined); setDropTarget(undefined); sync(); });
+                        }
+                    }}
+                >
+                    {sorted.map(effect => (
                         <Effect
-                            key={`effect-${effect.origIdx}`}
-                            effect={effect}
-                            effectIndex={effect.origIdx}
-                            navigateTo={navigateTo}
-                            requestRunning={requestRunning}
-                            effectEnable={effectEnable}
-                            gridLayout={gridLayout}
+                            {...effectProps(effect)}
                             onDragStart={(e, i) => { setDragging(i); e.dataTransfer.setData('index', i); }}
                             onDragOver={(e, i) => { e.preventDefault(); if (i !== undefined) setDropTarget(i); }}
                         />
-                    ))
-                }
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

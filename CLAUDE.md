@@ -95,3 +95,48 @@ If a `customeffects.h` file exists, it overrides the standard effect set (`#incl
 | Effect | File | Notes |
 |--------|------|-------|
 | `PatternSMSnow` | `include/effects/matrix/PatternSMSnow.h` | Falling snowflakes, 60 particles, pale ice-blue, 5-px cross for large flakes |
+
+## Web UI (site/)
+
+The web UI is a **React + Vite** app in `site/`. It talks directly to the ESP32 at the IP configured in `site/src/espaddr.jsx`.
+
+### Dev server (test locally against the real Mesmerizer)
+
+```bash
+cd site
+npm start          # Vite dev server at http://localhost:5173
+                   # Proxies API/WebSocket to 192.168.4.36 automatically
+```
+
+The `espaddr.jsx` file hard-codes `192.168.4.36` in dev mode — if the Mesmerizer is on the network, the UI fully works with live data.
+
+### Other npm scripts
+
+```bash
+npm run build      # Production build → site/dist/  (upload this to the ESP32)
+npm run local      # Preview the production build locally (no live reload)
+```
+
+### Uploading the built UI to the ESP32
+
+After `npm run build`, the compiled files in `site/dist/` need to be uploaded via PlatformIO's LittleFS:
+
+```bash
+pio run -e mesmerizer --target uploadfs   # uploads site/dist to ESP32 filesystem
+```
+
+### UI source layout
+
+| Path | Purpose |
+|------|---------|
+| `site/src/espaddr.jsx` | Device IP config (dev vs production) |
+| `site/src/styles.css` | All CSS — design tokens (CSS vars), component styles |
+| `site/src/components/Icon.jsx` | SVG icon registry — add paths here for new icons |
+| `site/src/components/home/designer/designer.jsx` | Effects panel — list/grid/category view |
+| `site/src/components/home/designer/effect/effect.jsx` | Individual effect card |
+| `site/src/util/categories.js` | Effect category keyword mapping |
+| `site/src/context/effectsContext.jsx` | Effects state — REST + WebSocket data fetching |
+
+### Adding a new icon
+
+Open `site/src/components/Icon.jsx` and add an entry to the `PATHS` object with the Material Icons SVG `d` attribute value. Then use `<Icon name="your_key" />` anywhere.

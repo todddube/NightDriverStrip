@@ -1,3 +1,59 @@
+# Todd Dube's Fork of NightDriverStrip <!-- omit in toc -->
+
+> **This is a personal fork** of [Dave Plummer's NightDriverStrip](https://github.com/PlummersSoftwareLLC/NightDriverStrip).
+> Dave's original README begins below the divider.
+
+## A Note of Gratitude — Standing on the Shoulders of Dave Plummer
+
+I discovered NightDriverStrip through **Dave's Garage**, Dave Plummer's YouTube channel, and it pulled me back into programming after years away from it. Dave has this rare gift for making complex systems feel approachable and genuinely fun — watching him build and explain software reignited something in me that had gone quiet. This project became the catalyst for my resurgence as a hobbyist programmer, and I owe that entirely to Dave's enthusiasm and generosity in sharing his work with the world.
+
+Dave Plummer is a former Microsoft engineer (he wrote Task Manager, among other things), a gifted teacher, and one of the most entertaining technical communicators on YouTube. If you haven't seen his channel, go watch it. His Mesmerizer LED matrix project — the hardware this firmware runs on — is a beautiful piece of work, and the firmware behind it is equally impressive.
+
+**Thank you, Dave.** Seriously.
+
+## My Additions to This Fork
+
+This fork is built on top of Dave's upstream codebase with personal customizations targeting the **Mesmerizer** (64×32 HUB75 LED matrix). My changes include:
+
+### New LED Effects (`PatternSM*`)
+
+All custom effects live in `include/effects/matrix/` and follow the `PatternSM` naming convention:
+
+| Effect | File | Description |
+|--------|------|-------------|
+| Snow | `PatternSMSnow.h` | Falling snowflakes — 60 particles, pale ice-blue, 5-pixel cross for large flakes |
+| Amber Rain | `PatternSMAmberRain.h` | Warm amber rainfall cascade |
+| Blurring Colors | `PatternSMBlurringColors.h` | Soft color diffusion and blur |
+| Fire 2021 | `PatternSMFire2021.h` | Classic fire simulation |
+| Flow Fields | `PatternSMFlowFields.h` | Perlin noise-driven particle flow |
+| Gamma | `PatternSMGamma.h` | Gamma correction visualizer |
+| Holiday Lights | `PatternSMHolidayLights.h` | Festive twinkling holiday palette |
+| Hypnosis | `PatternSMHypnosis.h` | Spinning hypnotic rings |
+| Meta Balls | `PatternSMMetaBalls.h` | Organic blob animation |
+| Noise | `PatternSMNoise.h` | Smooth Perlin noise color field |
+| Picasso 3-in-1 | `PatternSMPicasso3in1.h` | Three abstract geometric modes |
+| Radial Fire | `PatternSMRadialFire.h` | Fire emanating from the center |
+| Radial Wave | `PatternSMRadialWave.h` | Circular wave propagation |
+| Rainbow Tunnel | `PatternSMRainbowTunnel.h` | Zooming rainbow perspective tunnel |
+| Smoke | `PatternSMSmoke.h` | Wispy smoke simulation |
+| Spiro Pulse | `PatternSMSpiroPulse.h` | Spirograph-style pulsing lines |
+| Star Deep | `PatternSMStarDeep.h` | Deep-space starfield |
+| Strobe Diffusion | `PatternSMStrobeDiffusion.h` | Strobing diffusion patterns |
+| Supernova | `PatternSMSupernova.h` | Explosive radial burst |
+| Twister | `PatternSMTwister.h` | Rotating vortex columns |
+| Walking Machine | `PatternSMWalkingMachine.h` | Mechanical walking animation |
+| 2D DPR | `PatternSM2DDPR.h` | 2D dynamic particle rendering |
+
+### UI Overhaul
+
+The web UI (`site/`) has been redesigned — sleeker and more modern than the upstream version, with CPU-offloaded rendering and firmware date display fixes.
+
+### Weather Integration
+
+Updated weather effect with improved data handling.
+
+---
+
 # NightDriverStrip <!-- omit in toc -->
 
 - **Mesmerizer kits**, as demonstrated in [this video](https://youtu.be/COJnlehBcKw) and featured in the background of many other Dave's Garage videos, are now [available for sale on eBay](https://www.ebay.com/itm/335801442651)! (If that listing expires before we update the link, check out [Dave's listings](https://www.ebay.com/sch/i.html?_dkr=1&iconV2Request=true&_blrs=recall_filtering&_ssn=davepl&_oac=1); if the kits are available then the listing will be there.)

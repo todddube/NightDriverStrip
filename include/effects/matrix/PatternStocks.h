@@ -207,6 +207,31 @@ private:
 
     HTTPClient http;
 
+    // NormalizeSymbols
+    //
+    // Accepts semicolon- or space-delimited input (e.g. "AAPL; TSLA MSFT") and
+    // normalises it to the comma-separated format expected by GetAllQuotes.
+
+    static String NormalizeSymbols(const String& s)
+    {
+        String result = s;
+        for (int i = 0; i < (int)result.length(); i++)
+            if (result[i] == ';' || result[i] == ' ')
+                result[i] = ',';
+
+        // Collapse consecutive commas and strip leading/trailing ones
+        String out;
+        char prev = 0;
+        for (int i = 0; i < (int)result.length(); i++) {
+            if (result[i] == ',' && prev == ',') continue;
+            out += result[i];
+            prev = result[i];
+        }
+        while (out.length() > 0 && out[0] == ',')        out.remove(0, 1);
+        while (out.length() > 0 && out[out.length()-1] == ',') out.remove(out.length()-1);
+        return out;
+    }
+
     void GetQuote(const String &symbol, StockDataCallback callback = nullptr)
     {
         http.begin("http://" + stockServer + "/?ticker=" + symbol);
@@ -342,7 +367,7 @@ private:
                                         "The host and port of the service that provides stock data.",
                                         SettingSpec::SettingType::String);
             mySettingSpecs.emplace_back(NAME_OF(tickerSymbols), "Ticker symbols",
-                                        "Comma-separated list of ticker symbols to show stock data for.",
+                                        "Ticker symbols to display, separated by commas, semicolons, or spaces (e.g. AAPL; TSLA MSFT).",
                                         SettingSpec::SettingType::String);
         }
 
@@ -564,8 +589,10 @@ public:
         RETURN_IF_SET(name, NAME_OF(stockServer), stockServer, value);
 
         // If we receive a new list of stock ticker symbols then forget what stock data we
-        // have and trigger a reload.
-        if (SetIfSelected(name, NAME_OF(tickerSymbols), tickerSymbols, value))
+        // have and trigger a reload.  Normalize separators first so the user can type
+        // symbols separated by commas, semicolons, or spaces interchangeably.
+        const String normalizedSymbols = NormalizeSymbols(value);
+        if (SetIfSelected(name, NAME_OF(tickerSymbols), tickerSymbols, normalizedSymbols))
         {
             iCurrentStock = 0;
             stockData.clear();

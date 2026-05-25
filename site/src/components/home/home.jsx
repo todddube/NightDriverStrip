@@ -8,6 +8,7 @@ import ConfigDialog from './config/configDialog';
 import PreviewDialog from './designer/colordata/previewDialog';
 import NotificationPanel from './notifications/notifications';
 import SplashScreen from './splash/SplashScreen';
+import DevBanner from './DevBanner';
 import httpPrefix from '../../espaddr';
 
 const resetUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/reset`;
@@ -133,6 +134,7 @@ const MainApp = () => {
 
             {/* Main content */}
             <main className={`main-content${drawer ? ' open' : ''}`}>
+                <DevBanner />
                 <StatsPanel  open={showStats}  addNotification={addNotification} />
                 <DesignerPanel open={showDesign} addNotification={addNotification} />
             </main>
