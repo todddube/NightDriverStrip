@@ -354,7 +354,8 @@ class SplashLogoEffect : public EffectWithId<SplashLogoEffect>
         // Repo URL (upper text line)
         g()->setTextColor(GFXBase::to16bit(CRGB(120, 120, 200)));
         g()->setCursor(0, MATRIX_HEIGHT - fontH - 1);
-        g()->print("PlummersSoftwareLLC");
+        // g()->print("PlummersSoftwareLLC");
+        g()->print("Todd Dube");
 
         // Build date centered (bottom text line)
         const char * buildDate = __DATE__;
