@@ -40,7 +40,7 @@ const DevBanner = () => {
     if (!SHOW_BANNER || dismissed) return null;
 
     const deviceReachable = !!buildInfo;
-    const inSync = deviceReachable && buildInfo === LOCAL_BUILD && !GIT_DIRTY;
+    const inSync = deviceReachable && buildInfo === LOCAL_BUILD;
     const busy   = buildState === 'running' || uploadState === 'running';
 
     const dismiss = () => {
