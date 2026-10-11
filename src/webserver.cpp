@@ -307,6 +307,8 @@ void CWebServer::GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType 
         j["FS_SIZE"]               = SPIFFS.totalBytes();
         j["FS_USED"]               = SPIFFS.usedBytes();
         j["BUILD_INFO"]            = BUILD_TIMESTAMP;
+        j["FLASH_VERSION"]         = FLASH_VERSION;
+        j["FLASH_VERSION_NAME"]    = FLASH_VERSION_NAME;
     }
 
     if ((statsType & StatisticsType::Dynamic) != StatisticsType::None)

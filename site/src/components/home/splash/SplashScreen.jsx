@@ -2,10 +2,12 @@ import { useEffect, useState, useContext } from 'preact/hooks';
 import { StatsContext } from '../../../context/statsContext';
 import logoSrc from '../../../assets/lowreslogo.jpg';
 
+/* global __UI_BUILD__, __GIT_HASH__ */
+
 const SPLASH_DURATION = 5000; // ms
 
 const SplashScreen = ({ onDismiss }) => {
-    const { buildInfo } = useContext(StatsContext);
+    const { buildInfo, flashVersion } = useContext(StatsContext);
     const [progress, setProgress] = useState(0);
 
     useEffect(() => {
@@ -31,10 +33,21 @@ const SplashScreen = ({ onDismiss }) => {
                 <div className="splash-info">
                     <span className="splash-project">NightDriverStrip</span>
                     <span className="splash-repo">github.com/PlummersSoftwareLLC</span>
-                    {buildInfo
-                        ? <span className="splash-build">Built {buildInfo}</span>
-                        : <span className="splash-build splash-build--dim">Build info unavailable</span>
-                    }
+                </div>
+                <div className="splash-versions">
+                    <div className="splash-ver-row">
+                        <span className="splash-ver-label">Firmware</span>
+                        {flashVersion && <span className="ver-chip">{flashVersion}</span>}
+                        {buildInfo
+                            ? <span className="splash-build">Built {buildInfo}</span>
+                            : <span className="splash-build splash-build--dim">Build info unavailable</span>
+                        }
+                    </div>
+                    <div className="splash-ver-row">
+                        <span className="splash-ver-label">Web UI</span>
+                        <span className="ver-chip">{__GIT_HASH__}</span>
+                        <span className="splash-build">Built {__UI_BUILD__}</span>
+                    </div>
                 </div>
                 <div className="splash-progress-track">
                     <div className="splash-progress-bar" style={{ width: `${progress}%` }} />

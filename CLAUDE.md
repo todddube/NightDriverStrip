@@ -104,8 +104,8 @@ The web UI is a **React + Vite** app in `site/`. It talks directly to the ESP32 
 
 ```bash
 cd site
-npm start          # Vite dev server at http://localhost:5173
-                   # Proxies API/WebSocket to 192.168.4.36 automatically
+npm start          # Vite dev server at http://localhost:9000
+                   # Calls API/WebSocket on 192.168.4.36 directly (no proxy)
 ```
 
 The `espaddr.jsx` file hard-codes `192.168.4.36` in dev mode — if the Mesmerizer is on the network, the UI fully works with live data.

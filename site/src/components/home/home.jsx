@@ -1,4 +1,4 @@
-import { useState, useCallback, useContext } from 'react';
+import { useState, useCallback, useContext, useEffect } from 'react';
 import Icon from '../Icon';
 import { EffectsContext } from '../../context/effectsContext';
 import { StatsContext } from '../../context/statsContext';
@@ -10,11 +10,19 @@ import NotificationPanel from './notifications/notifications';
 import SplashScreen from './splash/SplashScreen';
 import DevBanner from './DevBanner';
 import httpPrefix from '../../espaddr';
+import { applyTheme, getThemePref, saveThemePref, nextThemePref, resolveTheme, onSystemThemeChange } from '../../util/theme';
 
 const resetUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/reset`;
 
+const THEME_UI = {
+    system: { icon: 'brightness_auto', label: 'System theme' },
+    light:  { icon: 'light_mode',      label: 'Light mode'   },
+    dark:   { icon: 'dark_mode',       label: 'Dark mode'    },
+};
+
 const MainApp = () => {
-    const [theme,    setTheme]    = useState(localStorage.getItem('theme') || 'dark');
+    const [themePref, setThemePref] = useState(getThemePref);
+    const [, setSystemTick] = useState(0);   // re-render when the OS theme flips
     const [drawer,   setDrawer]   = useState(false);
     const [showStats,   setStats]   = useState(() => {
         const c = JSON.parse(localStorage.getItem('config') || '{}');
@@ -35,14 +43,26 @@ const MainApp = () => {
     }, []);
 
     const { sync } = useContext(EffectsContext);
-    const { framesSocket, buildInfo } = useContext(StatsContext);
+    const { framesSocket, buildInfo, flashVersion } = useContext(StatsContext);
 
-    const toggleTheme = () => {
-        const next = theme === 'dark' ? 'light' : 'dark';
-        setTheme(next);
-        localStorage.setItem('theme', next);
-        document.documentElement.setAttribute('data-theme', next);
+    // In 'system' mode, follow OS light/dark changes live.
+    useEffect(() => {
+        applyTheme(themePref);
+        if (themePref !== 'system') return undefined;
+        return onSystemThemeChange(() => {
+            applyTheme('system');
+            setSystemTick(t => t + 1);
+        });
+    }, [themePref]);
+
+    const cycleTheme = () => {
+        const next = nextThemePref(themePref);
+        saveThemePref(next);
+        applyTheme(next);
+        setThemePref(next);
     };
+    const themeUi    = THEME_UI[themePref];
+    const themeTitle = `${themeUi.label}${themePref === 'system' ? ` (${resolveTheme('system')})` : ''}. Click for ${THEME_UI[nextThemePref(themePref)].label.toLowerCase()}`;
 
     const saveLayout = (stats, designer) => {
         localStorage.setItem('config', JSON.stringify({ stats, designer }));
@@ -72,7 +92,7 @@ const MainApp = () => {
                 </button>
                 <span className="appbar-title-group">
                     <span className="appbar-title">NightDriverStrip</span>
-                    {buildInfo && <span className="appbar-build">{buildInfo}</span>}
+                    {buildInfo && <span className="appbar-build">{flashVersion ? `${flashVersion} · ${buildInfo}` : buildInfo}</span>}
                 </span>
                 {notifications.length > 0 &&
                     <NotificationPanel notifications={notifications} clearNotifications={() => setNotifications([])} />
@@ -82,12 +102,7 @@ const MainApp = () => {
             {/* Side drawer */}
             <nav className={`drawer${drawer ? '' : ' closed'}`}>
                 <div className="drawer-header">
-                    <div className="drawer-mode">
-                        <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
-                            <Icon name={theme === 'dark' ? 'dark_mode' : 'light_mode'} />
-                        </button>
-                        <span className="nav-label" style={{fontSize:'13px'}}>{theme === 'dark' ? 'Dark' : 'Light'} mode</span>
-                    </div>
+                    <div className="flex-grow" />
                     <button className="icon-btn" onClick={() => setDrawer(false)}>
                         <Icon name="chevron_left" />
                     </button>
@@ -130,6 +145,20 @@ const MainApp = () => {
                         <span className="nav-label" style={{fontSize:'13px'}}>Device Control</span>
                     </li>
                 </ul>
+
+                {/* Theme toggle, pinned to the bottom so it's reachable when the drawer is collapsed */}
+                <div className="drawer-footer">
+                    <hr className="divider" />
+                    <div className="drawer-nav-item" onClick={cycleTheme}>
+                        <button className="icon-btn" title={themeTitle} aria-label={themeTitle}>
+                            <Icon name={themeUi.icon} />
+                        </button>
+                        <span className="nav-label" style={{fontSize:'13px'}}>
+                            {themeUi.label}
+                            {themePref === 'system' && <span className="nav-sublabel"> · {resolveTheme('system')}</span>}
+                        </span>
+                    </div>
+                </div>
             </nav>
 
             {/* Main content */}

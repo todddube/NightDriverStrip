@@ -9,6 +9,27 @@ import { getEffectCategory, CATEGORIES } from '../../../util/categories';
 
 const moveUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/moveEffect`;
 
+// Titled group of effect cards. Pass onToggle to make the section collapsible.
+const EffectSection = ({ title, count, variant, hint, expanded = true, onToggle, children }) => {
+    const heading = (
+        <>
+            {onToggle && <Icon name="chevron_right" size={16} className={`fx-section-chevron${expanded ? ' open' : ''}`} />}
+            <span className="fx-section-dot" />
+            <span className="fx-section-title">{title}</span>
+            <span className="fx-section-count">{count}</span>
+            {hint && <span className="fx-section-hint">{hint}</span>}
+        </>
+    );
+    return (
+        <section className={`fx-section fx-section--${variant}`}>
+            {onToggle
+                ? <button className="fx-section-header" onClick={onToggle} aria-expanded={expanded}>{heading}</button>
+                : <div className="fx-section-header">{heading}</div>}
+            {expanded && children}
+        </section>
+    );
+};
+
 const DesignerPanel = ({ open, addNotification }) => {
     const { pinnedEffect, activeInterval, sync, effects, currentEffect } = useContext(EffectsContext);
     const [editing,          setEditing]          = useState(false);
@@ -89,11 +110,13 @@ const DesignerPanel = ({ open, addNotification }) => {
     const searchLower = search.toLowerCase();
     const sorted = effects
         .map((effect, idx) => ({ ...effect, origIdx: idx }))
-        .filter(effect =>
-            (effect.enabled || showDisabled) &&
-            (!search || effect.name.toLowerCase().includes(searchLower))
-        )
+        .filter(effect => !search || effect.name.toLowerCase().includes(searchLower))
         .sort((a, b) => a.name.localeCompare(b.name));
+
+    // Enabled effects first, disabled ones in their own section below. Recomputed
+    // on every sync, so toggling an effect moves it between sections immediately.
+    const enabledEffects  = sorted.filter(e => e.enabled);
+    const disabledEffects = sorted.filter(e => !e.enabled);
 
     const effectProps = effect => ({
         key:            `effect-${effect.origIdx}`,
@@ -104,6 +127,54 @@ const DesignerPanel = ({ open, addNotification }) => {
         effectEnable,
         gridLayout,
     });
+
+    const layoutClass = gridLayout ? 'effects-grid' : 'effects-list';
+
+    const renderEffects = list => groupByCategory ? (
+        <div className="cat-container">
+            {CATEGORIES.map(cat => {
+                const catEffects = list.filter(e => getEffectCategory(e.name) === cat.id);
+                if (!catEffects.length) return null;
+                return (
+                    <div key={cat.id} className="cat-section">
+                        <div className="cat-header">
+                            <span className="cat-label">{cat.label}</span>
+                            <span className="cat-count">{catEffects.length}</span>
+                        </div>
+                        <div className={layoutClass}>
+                            {catEffects.map(effect => (
+                                <Effect
+                                    {...effectProps(effect)}
+                                    onDragStart={() => {}}
+                                    onDragOver={() => {}}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    ) : (
+        <div
+            className={layoutClass}
+            onDragOver={e => { e.preventDefault(); setDropTarget(undefined); }}
+            onDrop={e => {
+                e.preventDefault();
+                if (dragging !== undefined && dropTarget !== undefined && dragging !== dropTarget) {
+                    fetch(moveUrl, { method: 'POST', body: new URLSearchParams({ effectIndex: dragging, newIndex: dropTarget }) })
+                        .then(() => { setDragging(undefined); setDropTarget(undefined); sync(); });
+                }
+            }}
+        >
+            {list.map(effect => (
+                <Effect
+                    {...effectProps(effect)}
+                    onDragStart={(e, i) => { setDragging(i); e.dataTransfer.setData('index', i); }}
+                    onDragOver={(e, i) => { e.preventDefault(); if (i !== undefined) setDropTarget(i); }}
+                />
+            ))}
+        </div>
+    );
 
     return (
         <div className="designer-panel">
@@ -175,12 +246,6 @@ const DesignerPanel = ({ open, addNotification }) => {
 
                 <div className="flex-grow" />
 
-                <label className="label-sm">
-                    <input type="checkbox" checked={showDisabled} onChange={() => setShowDisabled(v => !v)}
-                        style={{accentColor:'var(--accent)'}} />
-                    Show Disabled
-                </label>
-
                 <button
                     className={`icon-btn${groupByCategory ? ' active' : ''}`}
                     onClick={() => setGroupByCategory(v => !v)}
@@ -198,50 +263,23 @@ const DesignerPanel = ({ open, addNotification }) => {
                 <div className="loading">No effects match "{search}"</div>
             )}
 
-            {groupByCategory ? (
-                <div className="cat-container">
-                    {CATEGORIES.map(cat => {
-                        const catEffects = sorted.filter(e => getEffectCategory(e.name) === cat.id);
-                        if (!catEffects.length) return null;
-                        return (
-                            <div key={cat.id} className="cat-section">
-                                <div className="cat-header">
-                                    <span className="cat-label">{cat.label}</span>
-                                    <span className="cat-count">{catEffects.length}</span>
-                                </div>
-                                <div className={gridLayout ? 'effects-grid' : 'effects-list'}>
-                                    {catEffects.map(effect => (
-                                        <Effect
-                                            {...effectProps(effect)}
-                                            onDragStart={() => {}}
-                                            onDragOver={() => {}}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            ) : (
-                <div
-                    className={gridLayout ? 'effects-grid' : 'effects-list'}
-                    onDragOver={e => { e.preventDefault(); setDropTarget(undefined); }}
-                    onDrop={e => {
-                        e.preventDefault();
-                        if (dragging !== undefined && dropTarget !== undefined && dragging !== dropTarget) {
-                            fetch(moveUrl, { method: 'POST', body: new URLSearchParams({ effectIndex: dragging, newIndex: dropTarget }) })
-                                .then(() => { setDragging(undefined); setDropTarget(undefined); sync(); });
-                        }
-                    }}
+            {enabledEffects.length > 0 && (
+                <EffectSection title="Enabled" count={enabledEffects.length} variant="enabled">
+                    {renderEffects(enabledEffects)}
+                </EffectSection>
+            )}
+
+            {disabledEffects.length > 0 && (
+                <EffectSection
+                    title="Disabled"
+                    count={disabledEffects.length}
+                    variant="disabled"
+                    hint="Not in rotation. Enable an effect to move it up."
+                    expanded={showDisabled}
+                    onToggle={() => setShowDisabled(v => !v)}
                 >
-                    {sorted.map(effect => (
-                        <Effect
-                            {...effectProps(effect)}
-                            onDragStart={(e, i) => { setDragging(i); e.dataTransfer.setData('index', i); }}
-                            onDragOver={(e, i) => { e.preventDefault(); if (i !== undefined) setDropTarget(i); }}
-                        />
-                    ))}
-                </div>
+                    {renderEffects(disabledEffects)}
+                </EffectSection>
             )}
         </div>
     );

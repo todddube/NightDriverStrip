@@ -28,6 +28,12 @@ try {
     gitDirty = execSync('git status --porcelain',     { cwd: rootDir, encoding: 'utf-8' }).trim().length > 0;
 } catch (_) {}
 
+// Web UI build time, in the same "Mon DD YYYY HH:MM:SS" format as BUILD_TIMESTAMP.
+const uiBuildTimestamp = new Date()
+    .toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric',
+                               hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    .replaceAll(',', '');
+
 // Dev-only API plugin — exposes POST /__dev/build and /__dev/upload so the
 // DevBanner can trigger builds and firmware uploads directly from the browser.
 const devApiPlugin = () => ({
@@ -55,6 +61,7 @@ export default defineConfig({
         __LOCAL_FIRMWARE_BUILD__: JSON.stringify(firmwareBuildTimestamp),
         __GIT_HASH__:             JSON.stringify(gitHash),
         __GIT_DIRTY__:            JSON.stringify(gitDirty),
+        __UI_BUILD__:             JSON.stringify(uiBuildTimestamp),
     },
     root: 'src',
     plugins: [

@@ -6,7 +6,7 @@ const statsEndpoint = `${httpPrefix !== undefined ? httpPrefix : ""}/statistics/
 
 const StatsProvider = ({ children }) => {
     const [stats, setStats] = useState({
-        buildInfo: null,
+        buildInfo: null, flashVersion: null,
         chipCores: 1, chipModel: 'ESP32', chipSpeed: 240,
         codeFree: 0, codeSize: 0, dmaSize: 0,
         effectsSocket: false, flashSize: 0, framesSocket: false,
@@ -26,6 +26,7 @@ const StatsProvider = ({ children }) => {
                 codeSize:     s.CODE_SIZE,
                 dmaSize:      s.DMA_SIZE,
                 buildInfo:    s.BUILD_INFO ?? null,
+                flashVersion: s.FLASH_VERSION_NAME ?? null,
                 effectsSocket:s.EFFECTS_SOCKET,
                 flashSize:    s.FLASH_SIZE,
                 framesSocket: s.FRAMES_SOCKET,

@@ -2,12 +2,15 @@ import { useState, useEffect, useContext } from 'react';
 import Icon from '../../../Icon';
 import ConfigDialog from '../../config/configDialog';
 import { EffectsContext } from '../../../../context/effectsContext';
+import { getEffectCategory, getCategory } from '../../../../util/categories';
 
 const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning, gridLayout, onDragStart, onDragOver }) => {
     const { activeInterval, remainingInterval, pinnedEffect, currentEffect } = useContext(EffectsContext);
     const [progress, setProgress] = useState(0);
     const [cfgOpen, setCfgOpen] = useState(false);
     const selected = Number(effectIndex) === currentEffect;
+    const category = getCategory(getEffectCategory(effect.name));
+    const hueStyle = { '--hue': category.hue };
 
     useEffect(() => {
         if (!selected || !remainingInterval) { setProgress(0); return; }
@@ -30,36 +33,43 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
         return (
             <div
                 className={cls}
+                style={hueStyle}
                 draggable
                 onDragStart={e => onDragStart(e, effectIndex)}
                 onDragOver={e => onDragOver(e, effectIndex)}
             >
                 {/* NOW PLAYING badge sits on the top border when active */}
-                {selected && <span className="ec-active-badge">NOW PLAYING</span>}
+                {selected && (
+                    <span className="ec-active-badge">
+                        <span className="ec-eq" aria-hidden="true"><i /><i /><i /></span>
+                        NOW PLAYING
+                    </span>
+                )}
 
-                {/* Name row + gear */}
+                <button className="ec-gear icon-btn" onClick={() => setCfgOpen(true)} title="Settings">
+                    <Icon name="settings" size={13} />
+                </button>
+
+                {/* Centered title + category */}
                 <div className="ec-header">
                     <span className="ec-name" title={effect.name}>{effect.name}</span>
-                    <button className="icon-btn" style={{width:22,height:22,flexShrink:0}} onClick={() => setCfgOpen(true)} title="Settings">
-                        <Icon name="settings" size={13} />
-                    </button>
+                    <span className="ec-cat">{category.label}</span>
                 </div>
 
                 {/* Action row / progress */}
                 <div className="ec-body">
                     {selected ? (
                         pinnedEffect
-                            ? <Icon name="infinity" size={14} style={{color:'var(--accent)'}} />
-                            : <div className="prog" style={{width:'100%'}}><div className="prog-fill" style={{width:`${progress}%`}}/></div>
+                            ? <span className="ec-pinned"><Icon name="infinity" size={14} /></span>
+                            : <div className="prog"><div className="prog-fill" style={{width:`${progress}%`}}/></div>
                     ) : (
                         <>
                             {effect.enabled && (
-                                <button className="btn-xs" disabled={requestRunning} onClick={() => navigateTo(effectIndex)}>
+                                <button className="btn-xs btn-xs--play" disabled={requestRunning} onClick={() => navigateTo(effectIndex)}>
                                     <Icon name="play" size={11} />Trigger
                                 </button>
                             )}
-                            <button className="btn-xs" disabled={requestRunning}
-                                style={effect.enabled ? {} : {color:'var(--green)',borderColor:'var(--green)'}}
+                            <button className={`btn-xs${effect.enabled ? '' : ' btn-xs--enable'}`} disabled={requestRunning}
                                 onClick={() => effectEnable(effectIndex, !effect.enabled)}>
                                 {effect.enabled ? 'Disable' : 'Enable'}
                             </button>
@@ -76,6 +86,7 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
     return (
         <div
             className={cls}
+            style={hueStyle}
             draggable
             onDragStart={e => onDragStart(e, effectIndex)}
             onDragOver={e => onDragOver(e, effectIndex)}

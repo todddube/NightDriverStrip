@@ -4,6 +4,8 @@ import SystemMonitor from './SystemMonitor';
 import { StatsContext } from '../../../context/statsContext';
 import httpPrefix from '../../../espaddr';
 
+/* global __UI_BUILD__, __GIT_HASH__ */
+
 const dynamicUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/statistics/dynamic`;
 const fmtBytes = b => (!b || b <= 0) ? '0' : b >= 1048576 ? `${(b/1048576).toFixed(1)} MB` : `${(b/1024).toFixed(0)} KB`;
 
@@ -15,7 +17,7 @@ const StatsPanel = ({ open, addNotification }) => {
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [lastRefresh,  setLastRefresh]  = useState(0);
 
-    const { heapSize, dmaSize, psRamSize, chipCores, chipModel, chipSpeed, codeSize, codeFree, flashSize, fsSize, fsUsed, buildInfo } = useContext(StatsContext);
+    const { heapSize, dmaSize, psRamSize, chipCores, chipModel, chipSpeed, codeSize, codeFree, flashSize, fsSize, fsUsed, buildInfo, flashVersion } = useContext(StatsContext);
 
     useEffect(() => {
         localStorage.setItem('statsConfig', JSON.stringify({ statsRefreshRate: refreshRate, maxSamples }));
@@ -42,7 +44,9 @@ const StatsPanel = ({ open, addNotification }) => {
         { key: 'Flash',  val: fmtBytes(flashSize) },
         { key: 'Code',   val: fmtBytes(codeSize) },
         { key: 'Free',   val: fmtBytes(codeFree) },
-        ...(buildInfo ? [{ key: 'Last Updated', val: buildInfo }] : []),
+        ...(flashVersion ? [{ key: 'Version',      val: flashVersion }] : []),
+        ...(buildInfo    ? [{ key: 'Last Updated', val: buildInfo }] : []),
+        { key: 'Web UI', val: `${__GIT_HASH__} · ${__UI_BUILD__}` },
         ...(flashSize > 0 ? [{ key: 'Firmware',    val: `${fmtBytes(codeSize)} / ${fmtBytes(flashSize)}` }] : []),
         ...(fsSize    > 0 ? [{ key: 'Filesystem',  val: `${fmtBytes(fsUsed)} / ${fmtBytes(fsSize)}` }] : []),
         ...(rawData   ? [

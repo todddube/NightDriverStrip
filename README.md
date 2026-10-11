@@ -11,6 +11,45 @@ Dave Plummer is a former Microsoft engineer (he wrote Task Manager, among other 
 
 **Thank you, Dave.** Seriously.
 
+## My Board — Mesmerizer @ `192.168.4.36`
+
+My device is a **Mesmerizer** on my home network at **<http://192.168.4.36>** (hostname `Mesmerizer`). Both the firmware build and the web UI dev server target this address.
+
+### Hardware (as reported by the device, inspected 2026-10-11)
+
+| Property | Value |
+|----------|-------|
+| Chip | ESP32-D0WD-V3, 2 cores @ 240 MHz |
+| Flash | 8 MB (custom partitions: `config/partitions_custom_8M.csv`) |
+| PSRAM | 4 MB |
+| Display | 64×32 HUB75 RGB matrix (2048 LEDs), `COLOR_ORDER=RGB` |
+| Audio | On-board mic, VU meter enabled (~66 audio FPS) |
+| Typical load | ~30 LED FPS, ~26% CPU, ~97 KB heap free |
+| Firmware | Built Jun 07 2026, matching commit `456ad3ed` |
+| Effects | 62 registered and enabled (`EFFECTS_FULLMATRIX`) |
+
+### Device settings
+
+| Setting | Value |
+|---------|-------|
+| Location | ZIP 23059, US — `America/New_York`, 12-hour clock, °F |
+| NTP | `0.pool.ntp.org` |
+| Power limit | 4500 mW |
+| Effect interval | 60 s, `rememberCurrentEffect` on |
+
+### Working with the board
+
+| Task | Command / location |
+|------|--------------------|
+| Build | `pio run -e mesmerizer` |
+| Flash firmware over Wi-Fi (OTA) | `pio run -e mesmerizer --target upload`. `[env:mesmerizer]` in `platformio.ini` sets `upload_protocol = espota` and `upload_port = 192.168.4.36` |
+| Upload web UI | `cd site && npm run build`, then `pio run -e mesmerizer --target uploadfs` |
+| UI dev server against the live board | `cd site && npm start`, then open http://localhost:9000. The UI calls the IP in `site/src/espaddr.jsx` directly |
+| Live stats | `curl http://192.168.4.36/statistics` |
+| Settings / effect list | `curl http://192.168.4.36/settings`, `curl http://192.168.4.36/effects` (see [REST_API.md](REST_API.md)) |
+
+> If the board's IP changes (for example after a DHCP lease change), update it in `platformio.ini` (`upload_port`), `site/src/espaddr.jsx`, and this README. A DHCP reservation on the router avoids this.
+
 ## My Additions to This Fork
 
 This fork is built on top of Dave's upstream codebase with personal customizations targeting the **Mesmerizer** (64×32 HUB75 LED matrix). My changes include:
