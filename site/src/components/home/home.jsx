@@ -9,10 +9,10 @@ import PreviewDialog from './designer/colordata/previewDialog';
 import NotificationPanel from './notifications/notifications';
 import SplashScreen from './splash/SplashScreen';
 import DevBanner from './DevBanner';
-import httpPrefix from '../../espaddr';
+import { post } from '../../api/device';
+import { usePersistedPrefs } from '../../hook/usePersistedPrefs';
+import { readText, writeText } from '../../util/storage';
 import { applyTheme, getThemePref, saveThemePref, nextThemePref, resolveTheme, onSystemThemeChange } from '../../util/theme';
-
-const resetUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/reset`;
 
 const THEME_UI = {
     system: { icon: 'brightness_auto', label: 'System theme' },
@@ -24,26 +24,22 @@ const MainApp = () => {
     const [themePref, setThemePref] = useState(getThemePref);
     const [, setSystemTick] = useState(0);   // re-render when the OS theme flips
     const [drawer,   setDrawer]   = useState(false);
-    const [showStats,   setStats]   = useState(() => {
-        const c = JSON.parse(localStorage.getItem('config') || '{}');
-        return c.stats !== undefined ? c.stats : true;
-    });
-    const [showDesign,  setDesign]  = useState(() => {
-        const c = JSON.parse(localStorage.getItem('config') || '{}');
-        return c.designer !== undefined ? c.designer : true;
-    });
+    const [layout, setLayout] = usePersistedPrefs('config', { stats: true, designer: true });
+    const showStats  = layout.stats;
+    const showDesign = layout.designer;
     const [settings, setSettings] = useState(false);
     const [preview,  setPreview]  = useState(false);
     const [devCtrl,  setDevCtrl]  = useState(null); // anchor element
     const [notifications, setNotifications] = useState([]);
-    const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('splashSeen'));
+    const [showSplash, setShowSplash] = useState(() => !readText('splashSeen', { session: true }));
     const dismissSplash = useCallback(() => {
-        sessionStorage.setItem('splashSeen', '1');
+        writeText('splashSeen', '1', { session: true });
         setShowSplash(false);
     }, []);
 
-    const { sync } = useContext(EffectsContext);
-    const { framesSocket, buildInfo, flashVersion } = useContext(StatsContext);
+    const { sync, error: effectsError } = useContext(EffectsContext);
+    const { framesSocket, buildInfo, flashVersion, error: statsError } = useContext(StatsContext);
+    const deviceError = statsError ?? effectsError;
 
     // In 'system' mode, follow OS light/dark changes live.
     useEffect(() => {
@@ -64,10 +60,6 @@ const MainApp = () => {
     const themeUi    = THEME_UI[themePref];
     const themeTitle = `${themeUi.label}${themePref === 'system' ? ` (${resolveTheme('system')})` : ''}. Click for ${THEME_UI[nextThemePref(themePref)].label.toLowerCase()}`;
 
-    const saveLayout = (stats, designer) => {
-        localStorage.setItem('config', JSON.stringify({ stats, designer }));
-    };
-
     const addNotification = (level, type, target, notification) => {
         setNotifications(prev => {
             const group = prev.find(n => n.level === level && n.type === type && n.target === target)
@@ -77,9 +69,12 @@ const MainApp = () => {
         });
     };
 
+    const resetDevice = params =>
+        post('/reset', params).catch(e => addNotification('Error', 'reset', '/reset', e));
+
     const navItems = [
-        { label: 'Home',       icon: 'home',        active: showDesign,  toggle: () => { const v = !showDesign; setDesign(v);  saveLayout(showStats, v); } },
-        { label: 'Statistics', icon: 'area_chart',  active: showStats,   toggle: () => { const v = !showStats;  setStats(v);   saveLayout(v, showDesign); } },
+        { label: 'Home',       icon: 'home',        active: showDesign,  toggle: () => setLayout('designer', v => !v) },
+        { label: 'Statistics', icon: 'area_chart',  active: showStats,   toggle: () => setLayout('stats', v => !v) },
     ];
 
     return (
@@ -163,6 +158,7 @@ const MainApp = () => {
 
             {/* Main content */}
             <main className={`main-content${drawer ? ' open' : ''}`}>
+                {deviceError && <div className="device-error" role="status">Can't reach the device — retrying. ({deviceError})</div>}
                 <DevBanner />
                 <StatsPanel  open={showStats}  addNotification={addNotification} />
                 <DesignerPanel open={showDesign} addNotification={addNotification} />
@@ -174,15 +170,15 @@ const MainApp = () => {
                     <div style={{position:'fixed',inset:0,zIndex:1399}} onClick={() => setDevCtrl(null)} />
                     <div className="dev-ctrl" style={{top: devCtrl.getBoundingClientRect().bottom + 4, left: devCtrl.getBoundingClientRect().left}}>
                         <button className="btn" onClick={() => {
-                            fetch(resetUrl, {method:'POST', body: new URLSearchParams({board:1})});
+                            resetDevice({board:1});
                             setDevCtrl(null);
                         }}>Reboot Device</button>
                         <button className="btn" onClick={() => {
-                            fetch(resetUrl, {method:'POST', body: new URLSearchParams({board:1, deviceConfig:1})});
+                            resetDevice({board:1, deviceConfig:1});
                             setDevCtrl(null);
                         }}>Reset Device Config</button>
                         <button className="btn" onClick={() => {
-                            fetch(resetUrl, {method:'POST', body: new URLSearchParams({board:1, effectsConfig:1})});
+                            resetDevice({board:1, effectsConfig:1});
                             setDevCtrl(null);
                         }}>Reset Effect Settings</button>
                     </div>

@@ -1,6 +1,8 @@
 import { useContext, useState, useRef, useEffect } from 'preact/hooks';
 import Icon from '../Icon';
 import { StatsContext } from '../../context/statsContext';
+import { readText, writeText } from '../../util/storage';
+import { address } from '../../espaddr';
 
 /* global __LOCAL_FIRMWARE_BUILD__, __GIT_HASH__, __GIT_DIRTY__ */
 const LOCAL_BUILD = __LOCAL_FIRMWARE_BUILD__;
@@ -25,7 +27,7 @@ const BTN_LABELS = {
 
 const DevBanner = () => {
     const { buildInfo } = useContext(StatsContext);
-    const [dismissed,   setDismissed]   = useState(() => sessionStorage.getItem('devBannerDismissed') === LOCAL_BUILD);
+    const [dismissed,   setDismissed]   = useState(() => readText('devBannerDismissed', { session: true }) === LOCAL_BUILD);
     const [copied,      setCopied]      = useState(null);
     const [buildState,  setBuildState]  = useState('idle');   // idle|running|success|error
     const [uploadState, setUploadState] = useState('idle');
@@ -44,7 +46,7 @@ const DevBanner = () => {
     const busy   = buildState === 'running' || uploadState === 'running';
 
     const dismiss = () => {
-        sessionStorage.setItem('devBannerDismissed', LOCAL_BUILD);
+        writeText('devBannerDismissed', LOCAL_BUILD, { session: true });
         setDismissed(true);
     };
 
@@ -125,7 +127,7 @@ const DevBanner = () => {
                 <span className={`dev-status-dot ${inSync ? 'sync' : 'drift'}`} />
                 <span className="dev-banner-title">
                     {!deviceReachable
-                        ? `Localhost dev mode — device at ${IS_LOCALHOST ? '192.168.4.36' : hostname} not reachable`
+                        ? `Localhost dev mode — device at ${IS_LOCALHOST ? address : hostname} not reachable`
                         : inSync
                             ? 'Localhost dev mode — device is up to date'
                             : 'Localhost dev mode — local build not deployed to device'}

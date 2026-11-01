@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { RgbColorPicker } from "react-colorful";
 import Icon from "../../Icon";
-import httpPrefix from "../../../espaddr";
+import { getJson, post } from "../../../api/device";
 
 // Setting type enum — matches types.h/SettingSpec.SettingType
 const T = { Integer: 0, PositiveBigInteger: 1, Float: 2, Boolean: 3, String: 4, Palette: 5, Color: 6, Slider: 7 };
@@ -16,7 +17,7 @@ const RGBToInt = ({ r, g, b }) =>
 // ── Mini color picker dialog ──────────────────────────────────────────────────
 const ColorPickerDialog = ({ title, initialColor, settingValue, setValue, onClose }) => {
     const [color, setColor] = useState(initialColor);
-    return (
+    return createPortal(
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth:300}}>
                 <div className="modal-title">{title}</div>
@@ -41,7 +42,8 @@ const ColorPickerDialog = ({ title, initialColor, settingValue, setValue, onClos
                     <button className="btn primary" onClick={() => { setValue(RGBToInt(color)); onClose(); }}>OK</button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -207,15 +209,15 @@ const ConfigInput = ({ setting, updateData, updateError }) => {
 
 // ── Main dialog ───────────────────────────────────────────────────────────────
 const ConfigDialog = ({ heading, effectIndex, open, setOpen, saveCallback }) => {
-    const settingsUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/settings${effectIndex !== undefined ? '/effect' : ''}`;
+    const settingsPath = `/settings${effectIndex !== undefined ? '/effect' : ''}`;
     const [content,       setContent]       = useState(null);
     const [saveData,      setSaveData]      = useState({});
     const [errorFields,   setErrorFields]   = useState(new Set());
     const [disableSubmit, setDisableSubmit] = useState(false);
+    const [saveError,     setSaveError]     = useState(null);
 
     useEffect(() => {
-        const spec    = `${settingsUrl}/specs${effectIndex !== undefined ? `?effectIndex=${effectIndex}` : ''}`;
-        const current = `${settingsUrl}${effectIndex !== undefined ? `?effectIndex=${effectIndex}` : ''}`;
+        const query = effectIndex !== undefined ? { effectIndex } : undefined;
 
         const updateData = (name, value) => setSaveData(d => {
             const copy = { ...d };
@@ -232,7 +234,7 @@ const ConfigDialog = ({ heading, effectIndex, open, setOpen, saveCallback }) => 
             });
         };
 
-        Promise.all([fetch(spec).then(r => r.json()), fetch(current).then(r => r.json())])
+        Promise.all([getJson(`${settingsPath}/specs`, query), getJson(settingsPath, query)])
             .then(([specs, cur]) => {
                 const inputs = specs.map(s => {
                     if (s.name in cur) s.value = cur[s.name];
@@ -245,31 +247,42 @@ const ConfigDialog = ({ heading, effectIndex, open, setOpen, saveCallback }) => 
 
     if (!open) return null;
 
+    // Save the settings; on failure keep the dialog open with the error shown.
+    // Resolves to true only if the device accepted the change.
     const submit = async () => {
-        await fetch(settingsUrl, { method: 'POST', body: new URLSearchParams({ effectIndex, ...saveData }) }).then(r => r.json()).catch(() => {});
+        setSaveError(null);
+        try {
+            await post(settingsPath, { effectIndex, ...saveData });
+        } catch (err) {
+            setSaveError(`Could not save: ${err.message}`);
+            return false;
+        }
         saveCallback?.();
         setOpen(false);
+        return true;
     };
 
     const submitAndReboot = async () => {
-        await submit();
-        fetch(`${httpPrefix !== undefined ? httpPrefix : ""}/reset`, { method: 'POST', body: new URLSearchParams({ board: 1 }) });
+        if (!await submit()) return;
+        post('/reset', { board: 1 }).catch(() => {});   // device is rebooting; the connection may drop
     };
 
-    return (
+    return createPortal(
         <div className="modal-overlay" onClick={() => setOpen(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-title">{heading} Configuration</div>
                 <div className="modal-body">
                     {content ?? <span style={{color:'var(--text-dim)'}}>Loading…</span>}
                 </div>
+                {saveError && <div className="modal-error" role="alert">{saveError}</div>}
                 <div className="modal-footer">
                     <button className="btn" onClick={() => setOpen(false)}>Cancel</button>
                     <button className="btn" disabled={disableSubmit} onClick={submit}>Apply</button>
                     <button className="btn primary" disabled={disableSubmit} onClick={submitAndReboot}>Apply &amp; Reboot</button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

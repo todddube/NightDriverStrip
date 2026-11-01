@@ -4,10 +4,9 @@ import Countdown from './countdown/countdown';
 import Effect from './effect/effect';
 import { EffectsContext } from '../../../context/effectsContext';
 import { msToTimeDisp } from '../../../util/time';
-import httpPrefix from '../../../espaddr';
+import { post } from '../../../api/device';
+import { usePersistedPrefs } from '../../../hook/usePersistedPrefs';
 import { getEffectCategory, CATEGORIES } from '../../../util/categories';
-
-const moveUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/moveEffect`;
 
 // Titled group of effect cards. Pass onToggle to make the section collapsible.
 const EffectSection = ({ title, count, variant, hint, expanded = true, onToggle, children }) => {
@@ -34,74 +33,51 @@ const DesignerPanel = ({ open, addNotification }) => {
     const { pinnedEffect, activeInterval, sync, effects, currentEffect } = useContext(EffectsContext);
     const [editing,          setEditing]          = useState(false);
     const [pendingInt,       setPendingInt]        = useState(Math.floor(activeInterval / 1000));
-    const [requestRunning,   setRunning]           = useState(false);
+    const [pending,          setPending]           = useState(0);   // in-flight device calls
+    const requestRunning = pending > 0;
     const [search,           setSearch]            = useState('');
-    const [gridLayout,       setGridLayout]        = useState(() => {
-        const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
-        return c.gridLayout !== undefined ? c.gridLayout : true;
-    });
-    const [showDisabled,     setShowDisabled]      = useState(() => {
-        const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
-        return c.showDisabled !== undefined ? c.showDisabled : true;
-    });
-    const [shuffle,          setShuffle]           = useState(() => {
-        const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
-        return c.shuffle !== undefined ? c.shuffle : false;
-    });
-    const [groupByCategory,  setGroupByCategory]   = useState(() => {
-        const c = JSON.parse(localStorage.getItem('designerConfig') || '{}');
-        return c.groupByCategory !== undefined ? c.groupByCategory : false;
-    });
+    const [prefs, setPref] = usePersistedPrefs('designerConfig',
+        { gridLayout: true, showDisabled: true, shuffle: false, groupByCategory: false });
+    const { gridLayout, showDisabled, shuffle, groupByCategory } = prefs;
+    const setGridLayout      = v => setPref('gridLayout', v);
+    const setShowDisabled    = v => setPref('showDisabled', v);
+    const setShuffle         = v => setPref('shuffle', v);
+    const setGroupByCategory = v => setPref('groupByCategory', v);
     const [dragging,   setDragging]   = useState(undefined);
     const [dropTarget, setDropTarget] = useState(undefined);
 
     useEffect(() => { setPendingInt(Math.floor(activeInterval / 1000)); }, [activeInterval]);
-    useEffect(() => {
-        localStorage.setItem('designerConfig', JSON.stringify({ gridLayout, showDisabled, shuffle, groupByCategory }));
-    }, [gridLayout, showDisabled, shuffle, groupByCategory]);
 
-    const req = (url, opts, op) =>
-        fetch(url, opts).catch(err => { addNotification('Error', op, url, err); throw err; });
-
-    const navigateTo = idx => {
-        setRunning(true);
-        return req(`${httpPrefix !== undefined ? httpPrefix : ""}/currentEffect`,
-            { method: 'POST', body: new URLSearchParams({ currentEffectIndex: idx }) }, 'navigateTo')
-            .then(sync).finally(() => setRunning(false));
+    // Run a device call while counting it as in-flight, report failure as a
+    // notification, and re-sync the effect list either way. Resolves to true
+    // only if the device accepted the call.
+    const run = async (op, path, params) => {
+        setPending(n => n + 1);
+        let ok = true;
+        try {
+            await post(path, params);
+        } catch (err) {
+            ok = false;
+            addNotification('Error', op, path, err);
+        }
+        await sync();
+        setPending(n => n - 1);
+        return ok;
     };
 
-    const effectEnable = (idx, enable) => {
-        setRunning(true);
-        return req(`${httpPrefix !== undefined ? httpPrefix : ""}/${enable ? 'enable' : 'disable'}Effect`,
-            { method: 'POST', body: new URLSearchParams({ effectIndex: idx }) }, 'effectEnable')
-            .then(sync).finally(() => setRunning(false));
+    const navigateTo   = idx => run('navigateTo', '/currentEffect', { currentEffectIndex: idx });
+    const effectEnable = (idx, enable) => run('effectEnable', enable ? '/enableEffect' : '/disableEffect', { effectIndex: idx });
+    const saveInterval = async secs => {
+        if (await run('setInterval', '/settings', { effectInterval: secs * 1000 })) setEditing(false);
     };
 
     const navigate = up => {
-        if (shuffle && up && effects) {
-            const candidates = effects
-                .map((e, i) => i)
-                .filter(i => effects[i].enabled && i !== currentEffect);
-            if (candidates.length > 0) {
-                const idx = candidates[Math.floor(Math.random() * candidates.length)];
-                setRunning(true);
-                return req(`${httpPrefix !== undefined ? httpPrefix : ""}/currentEffect`,
-                    { method: 'POST', body: new URLSearchParams({ currentEffectIndex: idx }) }, 'navigate')
-                    .then(sync).finally(() => setRunning(false));
-            }
+        if (shuffle && up) {
+            const candidates = effects.map((e, i) => i).filter(i => effects[i].enabled && i !== currentEffect);
+            if (candidates.length > 0)
+                return navigateTo(candidates[Math.floor(Math.random() * candidates.length)]);
         }
-        setRunning(true);
-        return req(`${httpPrefix !== undefined ? httpPrefix : ""}/${up ? 'nextEffect' : 'previousEffect'}`,
-            { method: 'POST' }, 'navigate')
-            .then(sync).finally(() => setRunning(false));
-    };
-
-    const saveInterval = secs => {
-        setEditing(false);
-        setRunning(true);
-        return req(`${httpPrefix !== undefined ? httpPrefix : ""}/settings`,
-            { method: 'POST', body: new URLSearchParams({ effectInterval: secs * 1000 }) }, 'setInterval')
-            .then(sync).finally(() => setRunning(false));
+        return run('navigate', up ? '/nextEffect' : '/previousEffect');
     };
 
     if (!open) return null;
@@ -161,8 +137,8 @@ const DesignerPanel = ({ open, addNotification }) => {
             onDrop={e => {
                 e.preventDefault();
                 if (dragging !== undefined && dropTarget !== undefined && dragging !== dropTarget) {
-                    fetch(moveUrl, { method: 'POST', body: new URLSearchParams({ effectIndex: dragging, newIndex: dropTarget }) })
-                        .then(() => { setDragging(undefined); setDropTarget(undefined); sync(); });
+                    run('moveEffect', '/moveEffect', { effectIndex: dragging, newIndex: dropTarget })
+                        .then(() => { setDragging(undefined); setDropTarget(undefined); });
                 }
             }}
         >

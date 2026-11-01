@@ -2,34 +2,32 @@ import { useState, useEffect, useContext } from 'react';
 import Icon from '../../Icon';
 import SystemMonitor from './SystemMonitor';
 import { StatsContext } from '../../../context/statsContext';
-import httpPrefix from '../../../espaddr';
+import { getJson } from '../../../api/device';
+import { usePersistedPrefs } from '../../../hook/usePersistedPrefs';
 
 /* global __UI_BUILD__, __GIT_HASH__ */
 
-const dynamicUrl = `${httpPrefix !== undefined ? httpPrefix : ""}/statistics/dynamic`;
 const fmtBytes = b => (!b || b <= 0) ? '0' : b >= 1048576 ? `${(b/1048576).toFixed(1)} MB` : `${(b/1024).toFixed(0)} KB`;
 
 const StatsPanel = ({ open, addNotification }) => {
-    const cfg = JSON.parse(localStorage.getItem('statsConfig') || '{}');
     const [rawData,      setRawData]      = useState(null);
-    const [refreshRate,  setRefreshRate]  = useState(cfg.statsRefreshRate ?? 3);
-    const [maxSamples,   setMaxSamples]   = useState(cfg.maxSamples ?? 50);
+    const [prefs, setPref] = usePersistedPrefs('statsConfig', { statsRefreshRate: 3, maxSamples: 50 });
+    const refreshRate = prefs.statsRefreshRate;
+    const maxSamples  = prefs.maxSamples;
+    const setRefreshRate = v => setPref('statsRefreshRate', v);
+    const setMaxSamples  = v => setPref('maxSamples', v);
+    const [pollError,    setPollError]    = useState(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [lastRefresh,  setLastRefresh]  = useState(0);
 
     const { heapSize, dmaSize, psRamSize, chipCores, chipModel, chipSpeed, codeSize, codeFree, flashSize, fsSize, fsUsed, buildInfo, flashVersion } = useContext(StatsContext);
 
     useEffect(() => {
-        localStorage.setItem('statsConfig', JSON.stringify({ statsRefreshRate: refreshRate, maxSamples }));
-    }, [refreshRate, maxSamples]);
-
-    useEffect(() => {
         if (!open) return;
         const ctrl = new AbortController();
-        fetch(dynamicUrl, { signal: ctrl.signal })
-            .then(r => r.json())
-            .then(s => setRawData(s))
-            .catch(() => {});
+        getJson('/statistics/dynamic', undefined, { signal: ctrl.signal })
+            .then(s => { setRawData(s); setPollError(null); })
+            .catch(err => { if (err.name !== 'AbortError') setPollError(err.message); });
 
         const id = setTimeout(() => setLastRefresh(Date.now()), refreshRate * 1000);
         return () => { clearTimeout(id); ctrl.abort(); };
@@ -75,6 +73,8 @@ const StatsPanel = ({ open, addNotification }) => {
                     </div>
                 ))}
             </div>
+
+            {pollError && <div className="device-error" role="status">Device unreachable — showing last values. ({pollError})</div>}
 
             {/* CPU · Memory · Storage · FPS — combined horizontal strip */}
             {rawData

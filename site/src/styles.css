@@ -812,3 +812,11 @@ button.fx-section-header:hover .fx-section-title { color: var(--accent); }
   padding: 4px 14px; font-size: 12px; cursor: pointer;
 }
 .splash-skip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Device connectivity warning */
+.device-error {
+  margin: 8px 0; padding: 8px 12px; font-size: 13px;
+  color: var(--error); background: rgba(248,81,73,0.1);
+  border: 1px solid rgba(248,81,73,0.4); border-radius: var(--radius);
+}
+.modal-error { color: var(--error); padding: 0 16px 8px; font-size: 13px; }

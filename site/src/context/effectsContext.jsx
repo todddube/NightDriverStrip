@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { httpPrefix, wsPrefix } from "../espaddr";
+import { wsPrefix } from "../espaddr";
+import { getJson } from "../api/device";
 import { StatsContext } from "./statsContext";
 
 const EffectsContext = createContext(undefined);
-const restEndpoint = `${httpPrefix !== undefined ? httpPrefix : ""}/effects`;
 const wsEndpoint   = `${wsPrefix}/effects`;
 const POLL_MS      = 30000;
 
@@ -13,6 +13,7 @@ const EffectsProvider = ({ children }) => {
     const [pinnedEffect,      setPinnedEffect]      = useState(false);
     const [remainingInterval, setRemainingInterval] = useState(0);
     const [currentEffect,     setCurrentEffect]     = useState(0);
+    const [error,             setError]             = useState(null);   // last failure talking to the device
 
     const { effectsSocket } = useContext(StatsContext);
     const ws = useRef(null);
@@ -20,13 +21,16 @@ const EffectsProvider = ({ children }) => {
     // Stable fetch function — no dependencies, never gets aborted by state changes
     const fetchEffects = useCallback(async (signal) => {
         try {
-            const data = await fetch(restEndpoint, signal ? { signal } : {}).then(r => r.json());
+            const data = await getJson("/effects", undefined, signal && { signal });
             setCurrentEffect(data.currentEffect);
             setRemainingInterval(data.millisecondsRemaining ?? 0);
             setActiveInterval(data.effectInterval ?? 2 ** 32);
             setEffects(data.Effects ?? []);
             setPinnedEffect(data.eternalInterval ?? false);
-        } catch (_) {}
+            setError(null);
+        } catch (err) {
+            if (err.name !== 'AbortError') setError(err.message);
+        }
     }, []);
 
     // Always fetch effects on mount to populate the initial list
@@ -82,7 +86,9 @@ const EffectsProvider = ({ children }) => {
                             });
                         });
                     }
-                } catch (_) {}
+                } catch (err) {
+                    console.warn('Ignoring malformed effects message', err);
+                }
             };
 
             sock.onclose = () => {
@@ -108,7 +114,7 @@ const EffectsProvider = ({ children }) => {
     return (
         <EffectsContext.Provider value={{
             activeInterval, remainingInterval, pinnedEffect,
-            currentEffect, effects,
+            currentEffect, effects, error,
             sync: fetchEffects,
         }}>
             {children}

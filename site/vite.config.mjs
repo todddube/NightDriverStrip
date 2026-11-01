@@ -64,6 +64,7 @@ export default defineConfig({
         __UI_BUILD__:             JSON.stringify(uiBuildTimestamp),
     },
     root: 'src',
+    envDir: '.',   // read .env.local from site/, not site/src/
     plugins: [
         preact(),
         devApiPlugin(),

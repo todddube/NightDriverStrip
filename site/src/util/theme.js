@@ -1,17 +1,18 @@
 // Theme preference: 'system' follows the OS/browser light/dark setting,
 // 'light' and 'dark' override it. Stored in localStorage under 'theme'.
+import { readText, writeText } from './storage';
 
 export const THEME_PREFS = ['system', 'light', 'dark'];
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 export function getThemePref() {
-    const saved = localStorage.getItem('theme');
+    const saved = readText('theme');
     return THEME_PREFS.includes(saved) ? saved : 'system';
 }
 
 export function saveThemePref(pref) {
-    localStorage.setItem('theme', pref);
+    writeText('theme', pref);
 }
 
 export function resolveTheme(pref) {

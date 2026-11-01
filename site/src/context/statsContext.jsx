@@ -1,8 +1,7 @@
 import { createContext, useEffect, useState } from "react";
-import httpPrefix from "../espaddr";
+import { getJson } from "../api/device";
 
 const StatsContext = createContext(undefined);
-const statsEndpoint = `${httpPrefix !== undefined ? httpPrefix : ""}/statistics/static`;
 
 const StatsProvider = ({ children }) => {
     const [stats, setStats] = useState({
@@ -15,9 +14,13 @@ const StatsProvider = ({ children }) => {
         progSize: 0, psRamSize: 0,
     });
 
+    const [error, setError] = useState(null);
+
+    // Load once; if the device isn't reachable yet, keep retrying every 5s.
     useEffect(() => {
-        fetch(statsEndpoint)
-            .then(r => r.json())
+        let timer;
+        let cancelled = false;
+        const load = () => getJson("/statistics/static")
             .then(s => setStats({
                 chipCores:    s.CHIP_CORES,
                 chipModel:    s.CHIP_MODEL,
@@ -38,10 +41,17 @@ const StatsProvider = ({ children }) => {
                 progSize:     s.PROG_SIZE,
                 psRamSize:    s.PSRAM_SIZE,
             }))
-            .catch(() => {});
-    }, []); // ← runs once on mount only
+            .then(() => { if (!cancelled) setError(null); })
+            .catch(err => {
+                if (cancelled) return;
+                setError(err.message);
+                timer = setTimeout(load, 5000);
+            });
+        load();
+        return () => { cancelled = true; clearTimeout(timer); };
+    }, []);
 
-    return <StatsContext.Provider value={stats}>{children}</StatsContext.Provider>;
+    return <StatsContext.Provider value={{ ...stats, error }}>{children}</StatsContext.Provider>;
 };
 
 export { StatsContext, StatsProvider };
