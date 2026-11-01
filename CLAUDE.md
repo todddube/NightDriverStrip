@@ -1,27 +1,63 @@
 # NightDriverStrip — Claude Code Guide
 
-## Project Overview
+Personal fork of [Dave Plummer's NightDriverStrip](https://github.com/PlummersSoftwareLLC/NightDriverStrip):
+ESP32 firmware (PlatformIO + Arduino + FastLED) for addressable LED strips and matrices, plus a Preact web UI
+served from the device. The primary target is the author's **Mesmerizer** (64×32 HUB75) at `192.168.4.36`.
 
-NightDriverStrip is an ESP32 firmware for driving addressable LED strips and matrix displays (WS2812, HUB75, etc.). It uses **PlatformIO** as its build system and **FastLED** for LED control.
+Related docs: `README.md` (setup, feature defines, fork notes), `REST_API.md` (device HTTP/WebSocket API),
+`CODEBASE_INTRO.md` (architecture tour), `CONTRIBUTING.md` (upstream style rules), `REVIEW.md` (open review findings).
+
+## Repository Layout
+
+| Path | Contents |
+|------|----------|
+| `src/`, `include/` | Firmware. `main.cpp` boot/task setup, `effectmanager.*` effect rotation + JSON persistence, `webserver.*` REST + WebSocket, `network.cpp` Wi-Fi/OTA/NTP |
+| `include/effects/matrix/` | Matrix effects (`PatternSM*`, header-only) |
+| `include/effects/strip/` | Strip effects |
+| `src/effects.cpp` | Effect includes + `LoadEffectFactories()` registration |
+| `site/` | Web UI (Preact + Vite). See "Web UI" below |
+| `platformio.ini` | All build environments (`mesmerizer`, `demo`, `umbrella`, ...) |
+| `tools/` | Build helpers: `bake_site.py` (builds UI into firmware), `build_timestamp.py`, `merge_image.py`, `show_envs.py` |
+| `config/` | Partition tables, timezone data, `ci_exclude.json` |
+| `include/secrets.h` | Wi-Fi credentials. **Git-ignored**; copy from `include/secrets.example.h` |
+| `WebInstaller/` | Browser-based flasher (upstream) |
+
+## Build & Flash
+
+```bash
+pio run -e mesmerizer                      # build (also builds the web UI — see below)
+pio run -e mesmerizer --target upload      # OTA upload to 192.168.4.36 (espota, set in platformio.ini)
+pio device monitor -e mesmerizer           # serial monitor
+python3 tools/show_envs.py                 # list all environments
+```
+
+Build is validated by `pio run`, not the IDE. The local clang IDE shows false-positive errors
+(undeclared identifiers, missing includes) because it lacks the ESP32/Arduino include paths — ignore them.
+
+If the board's IP changes, update `platformio.ini` (`upload_port`), `README.md`, and the UI dev address (`VITE_DEVICE_IP` in `site/.env.local`, or `DEFAULT_DEV_IP` in `site/src/espaddr.jsx`).
 
 ## Hardware Targets
 
-| Target | Display | Width | Height | Notes |
-|--------|---------|-------|--------|-------|
-| `mesmerizer` | HUB75 matrix | 64 | 32 | At 192.168.4.36 — ZIP 23059, EST timezone |
-| `demo` | WS281x strip | varies | 1 | Single LED strip |
-| `umbrella` | Fan/strip | varies | 1 | Circular fan layout |
+| Env | Display | Notes |
+|-----|---------|-------|
+| `mesmerizer` | HUB75 64×32 (2048 LEDs) | ESP32-D0WD-V3, 8 MB flash, 4 MB PSRAM, on-board mic. ZIP 23059, `America/New_York` |
+| `demo` | WS281x strip, height 1 | Single strip |
+| `umbrella` | Fan/strip | Circular fan layout |
 
-**Mesmerizer build flags:** `MESMERIZER=1`, `USE_HUB75=1`, `EFFECTS_FULLMATRIX=1`, `ENABLE_WIFI=1`, `ENABLE_AUDIO=1`
+Mesmerizer flags come from `[mesmerizer_config]` in `platformio.ini`: `MESMERIZER=1`, `USE_HUB75=1`,
+`EFFECTS_FULLMATRIX=1`, `ENABLE_WIFI=1`, `ENABLE_AUDIO=1`, `MATRIX_WIDTH=64`, `MATRIX_HEIGHT=32`.
+(`[env:mesmerizer]` additionally sets `EFFECTS_MESMERIZER=1`; nothing in `src/` reads it — registration is gated on `EFFECTS_FULLMATRIX`.)
 
-## Adding a New Effect (Quick Reference)
+## Adding a New Effect
 
-1. **Create** `include/effects/matrix/PatternSMYourEffect.h` (for matrix) or `include/effects/strip/YourEffect.h` (for strip)
-2. **Include** it in `src/effects.cpp` in the `#if USE_MATRIX` block, in alphabetical order with the other matrix includes
-3. **Register** it inside `LoadEffectFactories()` in the appropriate `RegisterAll()` call under `#if defined(EFFECTS_FULLMATRIX)`
-4. **No `.cpp` file needed** — effects are header-only
+1. Create `include/effects/matrix/PatternSMYourEffect.h` (matrix) or `include/effects/strip/YourEffect.h` (strip). Header-only — no `.cpp`.
+2. `#include` it in `src/effects.cpp` inside the `#if USE_MATRIX` block, alphabetical.
+3. Register it in `LoadEffectFactories()` inside the `RegisterAll()` under `#if defined(EFFECTS_FULLMATRIX)`.
+4. Build with `pio run -e mesmerizer`.
 
-## Effect Class Pattern
+**Ordering gotcha:** the device stores the current effect by **index**, not name. Append new effects at the **end** of
+a `RegisterAll()` block. Inserting in the middle shifts later indices and, with `rememberCurrentEffect` on, the device may
+resume on the wrong effect after reflash. A `customeffects.h`, if present, overrides the standard set (checked first).
 
 ```cpp
 #pragma once
@@ -38,105 +74,81 @@ class PatternSMMyEffect : public EffectWithId<PatternSMMyEffect>
 };
 ```
 
-## Key Drawing APIs (`g()` returns the active GFXBase*)
+### Drawing APIs (`g()` returns the active `GFXBase*`)
 
 | API | Description |
 |-----|-------------|
-| `g()->drawPixel(x, y, CRGB)` | Draw single pixel with bounds check |
-| `g()->leds[XY(x, y)] += color` | Direct LED access (no bounds check — use `isValidPixel` first) |
-| `g()->isValidPixel(x, y)` | Bounds check before direct access |
-| `g()->DimAll(uint8_t)` | Multiply all LEDs by value/255 (e.g. 210 = ~82% fade) |
-| `g()->Clear()` | Fill all LEDs with black |
-| `fadeAllChannelsToBlackBy(n)` | FastLED-style fade |
-| `g()->drawPixelXYF_Wu(x, y, color)` | Anti-aliased sub-pixel drawing |
+| `g()->drawPixel(x, y, CRGB)` | Single pixel, bounds-checked |
+| `g()->leds[XY(x, y)] += color` | Direct access, **no bounds check** — guard with `isValidPixel` |
+| `g()->isValidPixel(x, y)` | Bounds check |
+| `g()->DimAll(uint8_t)` | Multiply all LEDs by value/255 (210 ≈ 82%) |
+| `g()->Clear()` | All black |
+| `fadeAllChannelsToBlackBy(n)` | FastLED fade |
+| `g()->drawPixelXYF_Wu(x, y, color)` | Anti-aliased sub-pixel draw |
 
-## Coordinate System (Matrix)
+Matrix coordinates: X `0..MATRIX_WIDTH-1` left→right, Y `0..MATRIX_HEIGHT-1` top→bottom, `XY(x,y)` row-major.
+Mesmerizer: 64×32, `MATRIX_CENTER_X=31`, `MATRIX_CENTER_Y=16`.
 
-- **X**: 0 → `MATRIX_WIDTH-1` (left → right)
-- **Y**: 0 → `MATRIX_HEIGHT-1` (top → bottom)
-- `XY(x, y)` macro: converts to 1D LED index (row-major)
-- Mesmerizer: 64 × 32 = 2048 LEDs, `MATRIX_CENTER_X=31`, `MATRIX_CENTER_Y=16`
+Utilities: `random(min, max)` ([min,max)), `random8()`, `random16(n)`, `beatsin8(bpm, lo, hi)`, `sin8/cos8` (0–255 in/out).
 
-## Random / Utility Functions
+### Fork-added effects
 
-- `random(min, max)` — integer in [min, max)
-- `random8()` — random uint8_t
-- `random16(n)` — random uint16_t in [0, n)
-- `beatsin8(bpm, lo, hi)` — sinusoidal oscillator
-- `sin8(angle)` / `cos8(angle)` — fast 8-bit trig (0-255 in, 0-255 out, offset 128)
+`PatternSMSnow` is the only effect authored in this fork (60 particles, pale ice-blue, 5-px cross for large flakes).
+The other `PatternSM*` headers (AmberRain, Fire2021, …) came from upstream contributors.
 
-## IDE Diagnostics Note
+## Web UI (`site/`)
 
-The local clang IDE **will show false-positive errors** (undeclared identifiers, file not found) throughout the codebase because it lacks the ESP32/Arduino include paths. Ignore these — build with `pio run -e mesmerizer` to validate.
-
-## Build & Flash
-
-```bash
-# Build for Mesmerizer
-pio run -e mesmerizer
-
-# Build and upload
-pio run -e mesmerizer --target upload
-
-# Monitor serial output
-pio device monitor -e mesmerizer
-```
-
-## Effect Registration Gotcha
-
-Effects are ordered by their registration sequence in `LoadEffectFactories()`. The device stores the current effect by **index** (not name). Adding effects at the **end** of a `RegisterAll()` block preserves existing indices. Inserting in the middle will shift all subsequent indices, which can cause the device to resume on the wrong effect after reflash if `rememberCurrentEffect` is true.
-
-## Custom Effects Location
-
-If a `customeffects.h` file exists, it overrides the standard effect set (`#include "customeffects.h"` is checked first in `LoadEffectFactories()`).
-
-## Effects Added by This Project
-
-| Effect | File | Notes |
-|--------|------|-------|
-| `PatternSMSnow` | `include/effects/matrix/PatternSMSnow.h` | Falling snowflakes, 60 particles, pale ice-blue, 5-px cross for large flakes |
-
-## Web UI (site/)
-
-The web UI is a **React + Vite** app in `site/`. It talks directly to the ESP32 at the IP configured in `site/src/espaddr.jsx`.
-
-### Dev server (test locally against the real Mesmerizer)
+Preact 10 + Vite (Node 18+ recommended), imports written as `react`/`react-dom` and aliased to Preact by `@preact/preset-vite`.
 
 ```bash
 cd site
-npm start          # Vite dev server at http://localhost:9000
-                   # Calls API/WebSocket on 192.168.4.36 directly (no proxy)
+npm install
+npm start          # Vite dev server on http://localhost:9000, talks to the board at the IP in src/espaddr.jsx
+npm run build      # production bundle -> site/dist/ (single index.js + index.html, gzip'd)
+npm run local      # preview production build
 ```
 
-The `espaddr.jsx` file hard-codes `192.168.4.36` in dev mode — if the Mesmerizer is on the network, the UI fully works with live data.
+**How the UI reaches the device:** it is **embedded in the firmware**. Every `pio run` executes `tools/bake_site.py`,
+which runs `npm install` + `npm run build` and `platformio.ini` embeds `site/dist/index.html.gz` into the image.
+There is **no separate filesystem upload** — a firmware upload (`--target upload`) ships the new UI. `site/dist/` is git-ignored.
 
-### Other npm scripts
+In dev mode `espaddr.jsx` points API/WebSocket calls at `VITE_DEVICE_IP` (set in git-ignored `site/.env.local`, see `site/.env.example`; defaults to `192.168.4.36`); in production they use
+relative URLs / `window.location.host`. The Vite dev server also exposes `POST /__dev/build` and `/__dev/upload`
+(spawns `npm run build` / `pio ... upload`) for `DevBanner.jsx`. These exist only under `vite` dev server.
 
-```bash
-npm run build      # Production build → site/dist/  (upload this to the ESP32)
-npm run local      # Preview the production build locally (no live reload)
-```
-
-### Uploading the built UI to the ESP32
-
-After `npm run build`, the compiled files in `site/dist/` need to be uploaded via PlatformIO's LittleFS:
-
-```bash
-pio run -e mesmerizer --target uploadfs   # uploads site/dist to ESP32 filesystem
-```
-
-### UI source layout
+### Source map
 
 | Path | Purpose |
 |------|---------|
-| `site/src/espaddr.jsx` | Device IP config (dev vs production) |
-| `site/src/styles.css` | All CSS — design tokens (CSS vars), component styles |
-| `site/src/components/Icon.jsx` | SVG icon registry — add paths here for new icons |
-| `site/src/components/home/designer/designer.jsx` | Effects panel — list/grid/category view |
-| `site/src/components/home/designer/effect/effect.jsx` | Individual effect card |
-| `site/src/util/categories.js` | Effect category keyword mapping |
-| `site/src/context/effectsContext.jsx` | Effects state — REST + WebSocket data fetching |
+| `src/espaddr.jsx` | Device address (dev vs prod); exports `httpPrefix`, `wsPrefix` |
+| `src/api/device.js` | **All device REST calls go here**: `apiUrl(path)`, `getJson(path, params, init)`, `post(path, params)`. Non-2xx responses throw `ApiError` |
+| `src/util/storage.js`, `src/hook/usePersistedPrefs.js` | Safe localStorage/sessionStorage access (try/catch, type-checked merge over defaults). Use `usePersistedPrefs(key, defaults)` for persisted UI prefs |
+| `src/styles.css` | All CSS; design tokens as CSS vars, light/dark themes |
+| `src/context/effectsContext.jsx` | Effect list/current effect: REST fetch + WebSocket (`/ws/effects`) with polling fallback |
+| `src/context/statsContext.jsx` | One-shot `/statistics/static` fetch (build info, chip, matrix size, socket flags) |
+| `src/components/home/home.jsx` | App shell: app bar, drawer, panels, theme toggle, notifications |
+| `src/components/home/designer/designer.jsx` | Effects panel: grid/list/category views, search, shuffle, drag reorder |
+| `src/components/home/designer/effect/effect.jsx` | Effect card |
+| `src/components/home/config/configDialog.jsx` | Per-effect / device settings dialog |
+| `src/components/home/statistics/` | Stats panel and charts |
+| `src/components/home/DevBanner.jsx` | Dev-only build/upload banner (localhost or 192.168.x.x) |
+| `src/components/Icon.jsx` | SVG icon registry — add Material Icons `d` paths to `PATHS`, use `<Icon name="key" />` |
+| `src/util/categories.js` | Effect-name keyword → category mapping |
+| `src/util/theme.js` | system/light/dark preference |
 
-### Adding a new icon
+Device API is documented in `REST_API.md`. Endpoints used by the UI: `GET /effects`, `POST /currentEffect|nextEffect|previousEffect|enableEffect|disableEffect|moveEffect`, `GET|POST /settings`, `GET /statistics/static`.
 
-Open `site/src/components/Icon.jsx` and add an entry to the `PATHS` object with the Material Icons SVG `d` attribute value. Then use `<Icon name="your_key" />` anywhere.
+### UI conventions
+
+- Call the device through `src/api/device.js` (never raw `fetch` + `httpPrefix`); never hard-code the device IP outside `espaddr.jsx`.
+- Style with CSS variables from `styles.css`; avoid inline `style={{}}` for anything reusable.
+- Persisted UI preferences go through `usePersistedPrefs` / `util/storage.js` — never call `localStorage` or `JSON.parse` on it directly.
+- Modal dialogs render through `createPortal(..., document.body)` (a card with a transform would otherwise trap `position: fixed`).
+- Don't create "`Foo 2.jsx`" duplicates — they are Finder copy artifacts and get tracked by `git add -A` (see `REVIEW.md`).
+
+## Conventions
+
+- C++: follow `CONTRIBUTING.md` — match the style of the file/class you're in; keep changes small; no new template cleverness.
+- Don't commit `include/secrets.h` or `site/dist`.
+- After changing firmware, build `pio run -e mesmerizer`; after changing UI, at minimum `cd site && npm run build`.
+- Swift review rule from global config does not apply (no Swift here).

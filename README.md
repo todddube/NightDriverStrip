@@ -25,8 +25,8 @@ My device is a **Mesmerizer** on my home network at **<http://192.168.4.36>** (h
 | Display | 64×32 HUB75 RGB matrix (2048 LEDs), `COLOR_ORDER=RGB` |
 | Audio | On-board mic, VU meter enabled (~66 audio FPS) |
 | Typical load | ~30 LED FPS, ~26% CPU, ~97 KB heap free |
-| Firmware | Built Jun 07 2026, matching commit `456ad3ed` |
-| Effects | 62 registered and enabled (`EFFECTS_FULLMATRIX`) |
+| Firmware | Build date and version are shown in the web UI app bar (`/statistics/static` → `BUILD_INFO`) |
+| Effects | 62 registered at last inspection (`EFFECTS_FULLMATRIX`); the live list is at `/effects` |
 
 ### Device settings
 
@@ -43,12 +43,12 @@ My device is a **Mesmerizer** on my home network at **<http://192.168.4.36>** (h
 |------|--------------------|
 | Build | `pio run -e mesmerizer` |
 | Flash firmware over Wi-Fi (OTA) | `pio run -e mesmerizer --target upload`. `[env:mesmerizer]` in `platformio.ini` sets `upload_protocol = espota` and `upload_port = 192.168.4.36` |
-| Upload web UI | `cd site && npm run build`, then `pio run -e mesmerizer --target uploadfs` |
-| UI dev server against the live board | `cd site && npm start`, then open http://localhost:9000. The UI calls the IP in `site/src/espaddr.jsx` directly |
+| Update web UI | The UI is embedded in the firmware: every `pio run` rebuilds it (`tools/bake_site.py`), so just run the OTA upload above. No filesystem upload needed |
+| UI dev server against the live board | `cd site && npm start`, then open http://localhost:9000. The UI calls the IP in `VITE_DEVICE_IP` (default `192.168.4.36`) directly |
 | Live stats | `curl http://192.168.4.36/statistics` |
 | Settings / effect list | `curl http://192.168.4.36/settings`, `curl http://192.168.4.36/effects` (see [REST_API.md](REST_API.md)) |
 
-> If the board's IP changes (for example after a DHCP lease change), update it in `platformio.ini` (`upload_port`), `site/src/espaddr.jsx`, and this README. A DHCP reservation on the router avoids this.
+> If the board's IP changes (for example after a DHCP lease change), update it in `platformio.ini` (`upload_port`), this README, and the UI dev address (`VITE_DEVICE_IP` in `site/.env.local`; see `site/.env.example`). A DHCP reservation on the router avoids this.
 
 ## My Additions to This Fork
 
@@ -56,7 +56,7 @@ This fork is built on top of Dave's upstream codebase with personal customizatio
 
 ### New LED Effects (`PatternSM*`)
 
-All custom effects live in `include/effects/matrix/` and follow the `PatternSM` naming convention:
+Effects live in `include/effects/matrix/` and follow the `PatternSM` naming convention. Only **Snow** was written in this fork; the rest of the table are `PatternSM*` effects that ship in the upstream tree and are registered on the Mesmerizer:
 
 | Effect | File | Description |
 |--------|------|-------------|
@@ -85,7 +85,7 @@ All custom effects live in `include/effects/matrix/` and follow the `PatternSM` 
 
 ### UI Overhaul
 
-The web UI (`site/`) has been redesigned — sleeker and more modern than the upstream version, with CPU-offloaded rendering and firmware date display fixes.
+The web UI (`site/`, Preact + Vite) has been redesigned: effect categories and search, grid/list/category views, drag-to-reorder, enabled/disabled sections, system/light/dark theme, firmware version display, and a dev banner (on localhost) that can build and upload from the browser. See `CLAUDE.md` for the source map and `REVIEW.md` for open cleanup items.
 
 ### Weather Integration
 
