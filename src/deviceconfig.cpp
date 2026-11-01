@@ -109,6 +109,7 @@ bool DeviceConfig::SerializeToJSON(JsonObject& jsonObject, bool includeSensitive
     jsonDoc[UseCelsiusTag] = useCelsius;
     jsonDoc[NTPServerTag] = ntpServer;
     jsonDoc[RememberCurrentEffectTag] = rememberCurrentEffect;
+    jsonDoc[LiteUiTag] = liteUi;
     jsonDoc[PowerLimitTag] = powerLimit;
     // Only serialize showVUMeter if the VU meter is enabled in the build
     #if SHOW_VU_METER
@@ -146,6 +147,7 @@ bool DeviceConfig::DeserializeFromJSON(const JsonObjectConst& jsonObject, bool s
     SetIfPresentIn(jsonObject, useCelsius, UseCelsiusTag);
     SetIfPresentIn(jsonObject, ntpServer, NTPServerTag);
     SetIfPresentIn(jsonObject, rememberCurrentEffect, RememberCurrentEffectTag);
+    SetIfPresentIn(jsonObject, liteUi, LiteUiTag);
     SetIfPresentIn(jsonObject, powerLimit, PowerLimitTag);
     SetIfPresentIn(jsonObject, brightness, BrightnessTag);
     // Only deserialize showVUMeter if the VU meter is enabled in the build
@@ -244,6 +246,13 @@ const std::vector<std::reference_wrapper<SettingSpec>>& DeviceConfig::GetSetting
             "Remember current effect",
             "Indicates if the current effect index should be saved after an effect transition, so the device resumes "
             "from the same effect when restarted. Enabling this will lead to more wear on the flash chip of your device.",
+            SettingSpec::SettingType::Boolean
+        );
+        settingSpecs.emplace_back(
+            LiteUiTag,
+            "Lite web UI",
+            "Serve a minimal control page at the device address instead of the full web UI, and refuse live-preview "
+            "connections. This keeps load on the device low. The full UI stays available at <a href=\"/?ui=full\">/?ui=full</a>.",
             SettingSpec::SettingType::Boolean
         );
         settingSpecs.emplace_back(
@@ -369,6 +378,11 @@ DeviceConfig::ValidateResponse DeviceConfig::ValidateBrightness(const String& ne
         return { false, String("brightness is above maximum value of ") + BRIGHTNESS_MAX };
 
     return { true, "" };
+}
+
+void DeviceConfig::SetLiteUi(bool newLiteUi)
+{
+    SetAndSave(liteUi, newLiteUi);
 }
 
 void DeviceConfig::SetBrightness(int newBrightness)

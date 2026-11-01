@@ -52,6 +52,9 @@ public:
         _effectChangeSocket("/ws/effects")
     {
         #if COLORDATA_WEB_SOCKET_ENABLED
+        // The live preview streams every frame, which is the expensive part of the UI: don't accept
+        // new preview connections while the lite web UI is enabled.
+        _colorDataSocket.setFilter([](AsyncWebServerRequest *) { return !CWebServer::IsLiteUi(); });
         webServer.AddWebSocket(_colorDataSocket);
         #endif
 

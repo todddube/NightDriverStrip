@@ -111,6 +111,57 @@ void CWebServer::AddCORSHeaderAndSendResponse<AsyncJsonResponse>(AsyncWebServerR
     AddCORSHeaderAndSendResponse<AsyncWebServerResponse>(pRequest, pResponse);
 }
 
+// Minimal control page served instead of the full UI when "Lite web UI" is enabled. It fetches the
+// effect list once, and again after each action; it opens no WebSockets and does no polling.
+static const char LiteUiPage[] PROGMEM = R"LITE(<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>NightDriverStrip</title>
+<style>body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+font:16px system-ui,sans-serif;background:#f6f8fa;color:#1f2328;text-align:center}
+@media(prefers-color-scheme:dark){body{background:#0d1117;color:#e6edf3}}
+h1{font-size:clamp(28px,8vw,44px);margin:0}small{opacity:.7}
+button{font:inherit;padding:10px 18px;border-radius:6px;border:1px solid #8b949e;background:transparent;color:inherit;cursor:pointer}
+button.p{background:#0969da;border-color:#0969da;color:#fff}a{color:#0969da}</style>
+<small>NIGHTDRIVERSTRIP &middot; LITE</small><h1 id="n">&hellip;</h1><small id="m"></small>
+<div><button id="b">&#9664; Previous</button> <button id="f" class="p">Next &#9654;</button></div>
+<small id="e" style="color:#d1242f"></small><a href="/?ui=full">Open full UI</a>
+<script>
+const $=i=>document.getElementById(i);
+async function load(){try{const d=await(await fetch('/effects')).json();
+$('n').textContent=d.Effects[d.currentEffect].name;
+$('m').textContent=d.eternalInterval?'Held on this effect':'Changes every '+Math.round(d.effectInterval/1000)+'s';
+$('e').textContent=''}catch(x){$('e').textContent='Cannot reach the device'}}
+async function go(p){try{const r=await fetch(p,{method:'POST'});if(!r.ok)throw 0}catch(x){$('e').textContent='Request failed'}setTimeout(load,300)}
+$('b').onclick=()=>go('/previousEffect');$('f').onclick=()=>go('/nextEffect');load();
+</script></html>)LITE";
+
+bool CWebServer::IsLiteUi()
+{
+    return g_ptrSystem->GetDeviceConfig().LiteUi();
+}
+
+void CWebServer::ServeUiRoot(const char strUri[], EmbeddedWebFile &file)
+{
+    _server.on(strUri, HTTP_GET, [strUri, file](AsyncWebServerRequest *request)
+    {
+        Serial.printf("GET for: %s\n", strUri);
+
+        const AsyncWebParameter * pUi = request->hasParam("ui") ? request->getParam("ui") : nullptr;
+        bool wantFull = pUi && pUi->value() == "full";
+
+        if (IsLiteUi() && !wantFull)
+        {
+            AddCORSHeaderAndSendResponse(request, request->beginResponse(200, "text/html", LiteUiPage));
+            return;
+        }
+
+        AsyncWebServerResponse *response = request->beginResponse(200, file.type, file.contents, file.length);
+        if (file.encoding)
+            response->addHeader("Content-Encoding", file.encoding);
+
+        AddCORSHeaderAndSendResponse(request, response);
+    });
+}
+
 // Member function implementations
 
 // begin - register page load handlers and start serving pages
@@ -197,8 +248,8 @@ void CWebServer::begin()
     #if ENABLE_WEB_UI
         debugI("Web UI URL pathnames enabled");
 
-        ServeEmbeddedFile("/", html_file);
-        ServeEmbeddedFile("/index.html", html_file);
+        ServeUiRoot("/", html_file);
+        ServeUiRoot("/index.html", html_file);
         ServeEmbeddedFile("/index.js", js_file);
         ServeEmbeddedFile("/favicon.ico", ico_file);
     #endif
@@ -292,7 +343,7 @@ void CWebServer::GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType 
     {
         j["MATRIX_WIDTH"]          = MATRIX_WIDTH;
         j["MATRIX_HEIGHT"]         = MATRIX_HEIGHT;
-        j["FRAMES_SOCKET"]         = !!COLORDATA_WEB_SOCKET_ENABLED;
+        j["FRAMES_SOCKET"]         = !!COLORDATA_WEB_SOCKET_ENABLED && !IsLiteUi();
         j["EFFECTS_SOCKET"]        = !!EFFECTS_WEB_SOCKET_ENABLED;
         j["CHIP_MODEL"]            = _staticStats.ChipModel;
         j["CHIP_CORES"]            = _staticStats.ChipCores;
@@ -540,6 +591,7 @@ void CWebServer::SetSettingsIfPresent(AsyncWebServerRequest * pRequest)
     PushPostParamIfPresent<bool>(pRequest, DeviceConfig::UseCelsiusTag, SET_VALUE(deviceConfig.SetUseCelsius(value)));
     PushPostParamIfPresent<String>(pRequest, DeviceConfig::NTPServerTag, SET_VALUE(deviceConfig.SetNTPServer(value)));
     PushPostParamIfPresent<bool>(pRequest, DeviceConfig::RememberCurrentEffectTag, SET_VALUE(deviceConfig.SetRememberCurrentEffect(value)));
+    PushPostParamIfPresent<bool>(pRequest, DeviceConfig::LiteUiTag, SET_VALUE(deviceConfig.SetLiteUi(value)));
     PushPostParamIfPresent<int>(pRequest, DeviceConfig::PowerLimitTag, SET_VALUE(deviceConfig.SetPowerLimit(value)));
     PushPostParamIfPresent<int>(pRequest, DeviceConfig::BrightnessTag, SET_VALUE(deviceConfig.SetBrightness(value)));
 

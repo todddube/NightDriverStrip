@@ -135,6 +135,7 @@ class DeviceConfig : public IJSONSerializable
     bool    useCelsius = false;
     String  ntpServer = NTP_SERVER_DEFAULT;
     bool    rememberCurrentEffect = true;
+    bool    liteUi = false;
     int     powerLimit = POWER_LIMIT_DEFAULT;
     bool    showVUMeter = true;
     uint8_t brightness = BRIGHTNESS_MAX;
@@ -181,6 +182,7 @@ class DeviceConfig : public IJSONSerializable
     static constexpr const char * UseCelsiusTag = NAME_OF(useCelsius);
     static constexpr const char * NTPServerTag = NAME_OF(ntpServer);
     static constexpr const char * RememberCurrentEffectTag = NAME_OF(rememberCurrentEffect);
+    static constexpr const char * LiteUiTag = NAME_OF(liteUi);
     static constexpr const char * PowerLimitTag = NAME_OF(powerLimit);
     static constexpr const char * BrightnessTag = NAME_OF(brightness);
     // No need to publish the show VU meter tag unless we're also publishing the setting
@@ -234,6 +236,8 @@ class DeviceConfig : public IJSONSerializable
 
     bool RememberCurrentEffect() const { return rememberCurrentEffect; }
     void SetRememberCurrentEffect(bool newRememberCurrentEffect);
+    bool LiteUi() const { return liteUi; }
+    void SetLiteUi(bool newLiteUi);
 
     uint8_t GetBrightness() const { return brightness; }
     static ValidateResponse ValidateBrightness(const String& newBrightness);

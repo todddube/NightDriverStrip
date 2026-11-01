@@ -196,6 +196,10 @@ class CWebServer
     // Not static because it uses member _staticStats
     void GetStatistics(AsyncWebServerRequest * pRequest, StatisticsType statsType = StatisticsType::All) const;
 
+    // Serves the web UI entry point: the embedded full UI, or a tiny control page when the "Lite web UI"
+    // setting is on (append ?ui=full to reach the full UI regardless).
+    void ServeUiRoot(const char strUri[], EmbeddedWebFile &file);
+
     // This registers a handler for GET requests for one of the known files embedded in the firmware.
     void ServeEmbeddedFile(const char strUri[], EmbeddedWebFile &file)
     {
@@ -224,6 +228,9 @@ class CWebServer
     {
         _server.addHandler(&webSocket);
     }
+
+    // True if the device is configured to serve the lite web UI (no live preview connections).
+    static bool IsLiteUi();
 };
 
 inline CWebServer::StatisticsType operator|(CWebServer::StatisticsType lhs, CWebServer::StatisticsType rhs)
