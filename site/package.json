@@ -9,7 +9,8 @@
     "scripts": {
         "build": "vite build --emptyOutDir",
         "start": "vite --force",
-        "local": "vite preview"
+        "local": "vite preview",
+        "test": "node --test src/"
     },
     "devDependencies": {
         "@preact/preset-vite": "^2.8.1",
@@ -17,5 +18,6 @@
         "vite-plugin-compression": "^0.5.1",
         "vite-plugin-static-copy": "^3.4.0"
     },
-    "browserslist": "> 0.5% and not dead"
+    "browserslist": "> 0.5% and not dead",
+    "type": "module"
 }

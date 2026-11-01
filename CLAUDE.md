@@ -106,6 +106,7 @@ npm install
 npm start          # Vite dev server on http://localhost:9000, talks to the board at the IP in src/espaddr.jsx
 npm run build      # production bundle -> site/dist/ (single index.js + index.html, gzip'd)
 npm run local      # preview production build
+npm test           # node --test (util tests, e.g. category matching)
 ```
 
 **How the UI reaches the device:** it is **embedded in the firmware**. Every `pio run` executes `tools/bake_site.py`,
@@ -127,7 +128,7 @@ relative URLs / `window.location.host`. The Vite dev server also exposes `POST /
 | `src/context/effectsContext.jsx` | Effect list/current effect: REST fetch + WebSocket (`/ws/effects`) with polling fallback |
 | `src/context/statsContext.jsx` | One-shot `/statistics/static` fetch (build info, chip, matrix size, socket flags) |
 | `src/components/home/home.jsx` | App shell: app bar, drawer, panels, theme toggle, notifications |
-| `src/components/home/designer/designer.jsx` | Effects panel: grid/list/category views, search, shuffle, drag reorder |
+| `src/components/home/designer/designer.jsx` | Effects panel: filtering, sections, grid/list/category views, drag reorder. Split into `EffectToolbar.jsx`, `EffectSection.jsx`, `useEffectActions.js` (all device commands) |
 | `src/components/home/designer/effect/effect.jsx` | Effect card |
 | `src/components/home/config/configDialog.jsx` | Per-effect / device settings dialog |
 | `src/components/home/statistics/` | Stats panel and charts |

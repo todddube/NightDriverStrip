@@ -56,6 +56,25 @@ jobs:
     - name: "Build environment: ${{ matrix.envname }}"
       run: pio run -e ${{ matrix.envname }}
 
+  build-site:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: site/package-lock.json
+
+    - name: Install, test and build the web UI
+      working-directory: site
+      run: |
+        npm ci
+        npm test
+        npm run build
+
   call-web-installer:
     if: ( github.repository_owner == 'rbergen' && github.ref == 'refs/heads/staging' )
 

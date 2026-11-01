@@ -182,8 +182,13 @@ hr.divider { border: none; border-top: 1px solid var(--border-lite); margin: 4px
   border-bottom: 1px solid var(--border-lite); margin-bottom: 10px;
 }
 .hdr-val { display: flex; align-items: center; gap: 4px; color: var(--text-dim); font-size: 12px; }
-.hdr-val a { color: var(--text-dim); display: flex; align-items: center; }
-.hdr-val a:hover { color: var(--accent); text-decoration: none; }
+.hdr-link { color: var(--text-dim); display: flex; align-items: center; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.hdr-link:hover { color: var(--accent); }
+.interval-edit { display: flex; align-items: center; gap: 4px; }
+.interval-input { width: 70px; background: transparent; border: none; border-bottom: 1px solid var(--accent); color: var(--text); font-size: 13px; padding: 2px 0; outline: none; }
+.interval-unit { font-size: 12px; color: var(--text-dim); }
+.nav-group { display: flex; align-items: center; gap: 2px; }
+.search-clear { width: 18px; height: 18px; flex-shrink: 0; }
 .hdr-val input {
   width: 64px; background: transparent; border: none;
   border-bottom: 1px solid var(--accent);
