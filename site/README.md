@@ -1,21 +1,37 @@
-# NightDriverStrip Web Site
+# NightDriverStrip Web UI
 
-<!-- markdownlint-disable MD036 /no-emphasis-as-heading -->
-_Louisr, 1/24/2023_
+Preact + Vite single-page app that the firmware serves from the device. See the top-level
+[CLAUDE.md](../CLAUDE.md) for the source map and conventions, and [REST_API.md](../REST_API.md)
+for the device API.
 
-## Setup
-In order to locally develop this site, you need to have the following requirements:
-- Linux/WSL or Git Bash for windows
-- nodejs v16+
-- npm latest
+## Requirements
 
-With the requirements filled, open a bash terminal, go to the site folder and type `npm install`.
+- Node `^20.19` or `>=22.12` (enforced by `engines`), with npm.
 
-In order to test locally, you need to put the ip address in [site/src/espaddr.jsx](https://github.com/Louis-Riel/NightDriverStrip/blob/main/site/src/espaddr.jsx)
+## Develop against a real board
 
-Once this is done, please run `npm run start`, open a browser tab and paste the address that running this command put on your clipboard.
+```bash
+cd site
+npm ci
+cp .env.example .env.local     # optional: set VITE_DEVICE_IP to your board (default 192.168.4.36)
+npm start                      # http://localhost:9000, talks to the board directly
+```
 
-Once local testing is done, flash the ESP and point your browser to it.
+## Scripts
 
-![](../assets/dark.PNG)  
+| Script | What it does |
+|--------|--------------|
+| `npm start` | Vite dev server on `localhost:9000` (also exposes `/__dev/build` and `/__dev/upload` for the dev banner) |
+| `npm run build` | Production bundle in `dist/` as `.gz` files (what the firmware embeds) |
+| `npm run local` | Uncompressed build into `dist-preview/` and `vite preview` on `localhost:4173` (no device unless same-origin) |
+| `npm test` | `node --test` unit tests |
+| `npm run lint` | ESLint (errors fail CI; a few intentional run-once effects warn) |
+
+## Shipping to the device
+
+Nothing to do separately: every `pio run` for an environment that serves the UI runs
+`tools/bake_site.py`, which builds this app and embeds `dist/index.html.gz` in the firmware.
+Upload the firmware (`pio run -e mesmerizer --target upload`) and the new UI goes with it.
+
+![](../assets/dark.PNG)
 ![](../assets/light.PNG)

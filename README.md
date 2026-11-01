@@ -287,7 +287,7 @@ Note: Some defines are board specific, this is noted below.
 | ENABLE_WEBSERVER      | Turn on the internal webserver                                     |
 | TIME_BEFORE_LOCAL     | How many seconds before the lamp times out and shows local content |
 | ENABLE_NTP            | Set the clock from the web                                         |
-| ENABLE_OTA            | Accept over the air flash updates                                  |
+| ENABLE_OTA            | Accept over the air flash updates. Optionally define `OTA_PASSWORD` (e.g. `-DOTA_PASSWORD=\"secret\"`) to require a password; uploads then need `upload_flags = --auth=secret` |
 | COLORDATA_SERVER_ENABLED | Turn on the internal color data server; allows TCP clients to receive updates on what's being displayed on the LEDs that the device is driving. |
 
 | Hardware Specific | Description                                         | Supported Boards             |
@@ -387,7 +387,7 @@ To compile the front-end application (which is part of every PlatformIO build) a
 
 **Note** that installing NodeJS using your operating system's/distribution's default package manager is likely to leave you with a much older NodeJS version than you need.
 
-The application has been tested on node version 16.15.1 and 18.17.1 with NPM version 8.13.2; newer versions should also work in principle.
+The web UI uses Vite 8, which needs Node `^20.19` or `>=22.12` (enforced by the `engines` field in `site/package.json`); the current release has been built with Node 26. `tools/bake_site.py` runs `npm ci` only when `site/package-lock.json` is newer than `node_modules`.
 
 For details on working with the frontend application see [site/README.md](./site/README.md).
 

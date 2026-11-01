@@ -41,8 +41,6 @@ for i, arg in enumerate(sys.argv):
     if arg == 'local':
         print("Local build is not recommended. see site/readme.md for running a live server", file=sys.stderr)
         build = "local"
-    if arg == 'offline':
-        build = build + "-offline"
 
 
 # Check if NPM is installed. If its not let the user know.
@@ -52,8 +50,15 @@ except subprocess.CalledProcessError:
     print('Error could not find NPM executable. Please install NPM to continue. see README.md/#build-tools', file=sys.stderr)
     exit(1)
 
-# Install dependencies with NPM
-subprocess.check_call('cd site && npm install --save false', shell=True, stdout=subprocess.DEVNULL)
+# Install dependencies with NPM, but only when package-lock.json is newer than node_modules
+# (or node_modules is missing). `npm ci` installs exactly what the lockfile pins.
+def deps_stale():
+    lock = os.path.join('site', 'package-lock.json')
+    marker = os.path.join('site', 'node_modules', '.package-lock.json')
+    return not os.path.exists(marker) or os.path.getmtime(lock) > os.path.getmtime(marker)
+
+if deps_stale():
+    subprocess.check_call('cd site && npm ci', shell=True, stdout=subprocess.DEVNULL)
 
 # Regenerate build timestamp header so webserver.cpp always reflects the real build time
 ts = datetime.datetime.now().strftime("%b %d %Y %H:%M:%S")

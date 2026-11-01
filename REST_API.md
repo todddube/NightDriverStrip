@@ -328,7 +328,7 @@ The payload of the textual event message is a small JSON object with one propert
 | Current/active effect changed | `currentEffectIndex` | The zero-based index of the effect that is now active, with regards to the effect list returned by the [`/effects` endpoint](#get-effect-list-information). |
 | Effect list contents have changed | `effectListDirty` | The contents of the effects list as returned by the [`/effects` endpoint](#get-effect-list-information) have changed in a way that warrant a reload of that list. Acting on later webSocket events without reloading the effects list may lead to a misrepresentation of the actual status. |
 | Enabled state for an effect has changed | `effectsEnabledState` | The property will contain an array with one entry. That entry is a JSON object with two properties:<br>- `index`: the zero-based index of the effect of which the enabled state has changed<br>- `enabled`: boolean that indicates if the effect is enabled (`true`) or disabled (`false`) |
-| "Next effect" interval has changed | `interval` | The duration that an effect will be active before the device proceeds to the next enabled effect in the effects list, in seconds. |
+| "Next effect" interval has changed | `interval` | The duration that an effect will be active before the device proceeds to the next enabled effect in the effects list, in milliseconds (the same unit as `effectInterval` in the `/effects` response). |
 <!-- markdownlint-enable MD033 -->
 
 ### Color data

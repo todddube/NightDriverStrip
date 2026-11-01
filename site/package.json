@@ -9,15 +9,24 @@
     "scripts": {
         "build": "vite build --emptyOutDir",
         "start": "vite --force",
-        "local": "vite preview",
-        "test": "node --test src/"
+        "local": "NO_GZIP=1 vite build --outDir ../dist-preview --emptyOutDir && vite preview --outDir ../dist-preview",
+        "test": "node --test src/",
+        "lint": "eslint src"
     },
     "devDependencies": {
+        "@eslint/js": "^9.39.5",
         "@preact/preset-vite": "^2.8.1",
+        "eslint": "^9.39.5",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^7.1.1",
+        "globals": "^17.14.0",
         "vite": "^8.0.8",
         "vite-plugin-compression": "^0.5.1",
         "vite-plugin-static-copy": "^3.4.0"
     },
     "browserslist": "> 0.5% and not dead",
-    "type": "module"
+    "type": "module",
+    "engines": {
+        "node": "^20.19.0 || >=22.12.0"
+    }
 }

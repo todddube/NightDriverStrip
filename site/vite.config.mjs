@@ -71,11 +71,12 @@ export default defineConfig({
         viteStaticCopy({
             targets: [{ src: '../../assets/favicon.ico', dest: '' }]
         }),
-        viteCompression({
+        // The device serves the .gz files; skip compression for `npm run local` so preview can serve plain files.
+        ...(process.env.NO_GZIP ? [] : [viteCompression({
             filter:           /\.(js|mjs|json|css|html|ico)$/i,
             deleteOriginFile: true,
             threshold:        0,
-        }),
+        })]),
     ],
     // /__dev/build and /__dev/upload spawn shell commands: never expose them to the network.
     server: { port: 9000, host: 'localhost' },

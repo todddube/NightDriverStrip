@@ -295,6 +295,10 @@ void LoadEffectFactories()
         });
 
         // Full matrix effect set for advanced displays (Mesmerizer, etc.)
+        //
+        // ORDER MATTERS: the device persists the current effect by index, not name. Append new
+        // effects at the END of this list; inserting in the middle shifts every later index and
+        // the device may resume on the wrong effect after a reflash (see CLAUDE.md).
         RegisterAll(*g_ptrEffectFactories,
             Effect<SpectrumBarEffect>("Audiograph", 16, 4, 0),
             Effect<SpectrumAnalyzerEffect>("Spectrum", NUM_BANDS, spectrumAltColors, false, 0, 0, 1.6, 1.6),

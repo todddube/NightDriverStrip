@@ -46,7 +46,6 @@ If the board's IP changes, update `platformio.ini` (`upload_port`), `README.md`,
 
 Mesmerizer flags come from `[mesmerizer_config]` in `platformio.ini`: `MESMERIZER=1`, `USE_HUB75=1`,
 `EFFECTS_FULLMATRIX=1`, `ENABLE_WIFI=1`, `ENABLE_AUDIO=1`, `MATRIX_WIDTH=64`, `MATRIX_HEIGHT=32`.
-(`[env:mesmerizer]` additionally sets `EFFECTS_MESMERIZER=1`; nothing in `src/` reads it — registration is gated on `EFFECTS_FULLMATRIX`.)
 
 ## Adding a New Effect
 
@@ -105,8 +104,9 @@ cd site
 npm install
 npm start          # Vite dev server on http://localhost:9000, talks to the board at the IP in src/espaddr.jsx
 npm run build      # production bundle -> site/dist/ (single index.js + index.html, gzip'd)
-npm run local      # preview production build
+npm run local      # uncompressed build -> dist-preview/, served by vite preview on :4173
 npm test           # node --test (util tests, e.g. category matching)
+npm run lint       # ESLint; errors fail CI
 ```
 
 **How the UI reaches the device:** it is **embedded in the firmware**. Every `pio run` executes `tools/bake_site.py`,
@@ -115,7 +115,7 @@ There is **no separate filesystem upload** — a firmware upload (`--target uplo
 
 In dev mode `espaddr.jsx` points API/WebSocket calls at `VITE_DEVICE_IP` (set in git-ignored `site/.env.local`, see `site/.env.example`; defaults to `192.168.4.36`); in production they use
 relative URLs / `window.location.host`. The Vite dev server also exposes `POST /__dev/build` and `/__dev/upload`
-(spawns `npm run build` / `pio ... upload`) for `DevBanner.jsx`. These exist only under `vite` dev server.
+(spawns `npm run build` / `pio ... upload`) for `DevBanner.jsx`. These exist only under the `vite` dev server, which is pinned to `localhost`.
 
 ### Source map
 
@@ -132,7 +132,8 @@ relative URLs / `window.location.host`. The Vite dev server also exposes `POST /
 | `src/components/home/designer/effect/effect.jsx` | Effect card |
 | `src/components/home/config/configDialog.jsx` | Per-effect / device settings dialog |
 | `src/components/home/statistics/` | Stats panel and charts |
-| `src/components/home/DevBanner.jsx` | Dev-only build/upload banner (localhost or 192.168.x.x) |
+| `src/components/home/DevBanner.jsx` | Dev "Deploy" card: local-vs-device build comparison, Build → Upload pipeline (per-step status/progress, "Build & Upload"), colorized log. Full panel only under `npm start`; compact version check on the device |
+| `src/components/App.jsx`, `src/components/home/lite/LiteView.jsx`, `src/util/uiMode.js` | `?ui=lite` / `?ui=full` (remembered in localStorage): lite is a minimal now-playing + Previous/Next page with no stats polling and no live preview |
 | `src/components/Icon.jsx` | SVG icon registry — add Material Icons `d` paths to `PATHS`, use `<Icon name="key" />` |
 | `src/util/categories.js` | Effect-name keyword → category mapping |
 | `src/util/theme.js` | system/light/dark preference |
@@ -149,6 +150,7 @@ Device API is documented in `REST_API.md`. Endpoints used by the UI: `GET /effec
 
 ## Conventions
 
+- OTA password is opt-in: `-DOTA_PASSWORD=\"x\"` in build flags + `upload_flags = --auth=x`. Off by default.
 - C++: follow `CONTRIBUTING.md` — match the style of the file/class you're in; keep changes small; no new template cleverness.
 - Don't commit `include/secrets.h` or `site/dist`.
 - After changing firmware, build `pio run -e mesmerizer`; after changing UI, at minimum `cd site && npm run build`.

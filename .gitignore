@@ -42,3 +42,4 @@ xtest.cpp
 * [0-9].json
 * [0-9].piobkp
 site/.env.local
+site/dist-preview

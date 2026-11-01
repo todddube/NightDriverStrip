@@ -590,6 +590,11 @@ void SetupOTA(const String &strHostname)
     }).onError([](ota_error_t) {
         g_Values.UpdateStarted = false;
     });
+#ifdef OTA_PASSWORD
+    // Optional: define OTA_PASSWORD (e.g. -DOTA_PASSWORD=\"secret\" in build_flags) to require a
+    // password for OTA uploads. Uploads must then pass the same value: upload_flags = --auth=secret
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+#endif
     ArduinoOTA.begin();
 #endif
 }
