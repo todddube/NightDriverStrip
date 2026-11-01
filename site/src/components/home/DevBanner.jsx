@@ -3,6 +3,7 @@ import { Fragment } from 'preact';
 import Icon from '../Icon';
 import { StatsContext } from '../../context/statsContext';
 import { readText, writeText } from '../../util/storage';
+import { usePersistedPrefs } from '../../hook/usePersistedPrefs';
 import { address } from '../../espaddr';
 
 const LOCAL_BUILD = __LOCAL_FIRMWARE_BUILD__;
@@ -76,6 +77,8 @@ const DevBanner = () => {
     const [output,      setOutput]      = useState('');
     const [showOutput,  setShowOutput]  = useState(false);
     const termRef = useRef(null);
+    const [prefs, setPref] = usePersistedPrefs('devBannerConfig', { collapsed: false });
+    const collapsed = prefs.collapsed;
 
     useEffect(() => {
         if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight;
@@ -101,6 +104,7 @@ const DevBanner = () => {
     const runCmd = async (endpoint, key) => {
         const setState = key === 'build' ? setBuildState : setUploadState;
         setState('running');
+        setPref('collapsed', false);   // show progress when a run starts
         setOutput('');
         setShowOutput(true);
         try {
@@ -178,58 +182,73 @@ const DevBanner = () => {
     return (
         <section className={`dev-banner dev-banner--${tone}`} aria-label="Deploy to device">
             <header className="dev-head">
-                <span className={`dev-status-ring ${tone}`}><Icon name={inSync ? 'check_circle' : 'cloud_upload'} size={22} /></span>
-                <div className="dev-head-text">
-                    <span className="dev-eyebrow">DEV MODE · LOCALHOST</span>
-                    <span className="dev-headline">{headline}</span>
-                </div>
+                <button
+                    className="dev-collapse"
+                    onClick={() => setPref('collapsed', v => !v)}
+                    aria-expanded={!collapsed}
+                    aria-controls="dev-body"
+                    title={collapsed ? 'Expand deploy panel' : 'Collapse deploy panel'}
+                >
+                    <Icon name="chevron_right" size={18} className={`fx-section-chevron${collapsed ? '' : ' open'}`} />
+                    <span className={`dev-status-ring ${tone}`}><Icon name={inSync ? 'check_circle' : 'cloud_upload'} size={22} /></span>
+                    <span className="dev-head-text">
+                        <span className="dev-eyebrow">DEV MODE · LOCALHOST</span>
+                        <span className="dev-headline">{headline}</span>
+                    </span>
+                </button>
+                {collapsed && STEPS.map(step => (
+                    <span key={step.key} className={`dev-chip dev-chip--${stateOf(step.key)}`} title={step.title}>
+                        {step.action} · {STATE_LABEL[stateOf(step.key)]}
+                    </span>
+                ))}
                 {GIT_DIRTY && <span className="dev-badge dirty">uncommitted changes</span>}
                 <button className="btn primary dev-all" disabled={busy} onClick={runAll}>
                     <Icon name="cloud_upload" size={16} /> Build &amp; Upload
                 </button>
-                <button className="icon-btn dev-dismiss" onClick={dismiss} title="Dismiss" aria-label="Dismiss">
-                    <Icon name="close" size={14} />
-                </button>
             </header>
 
-            <div className="dev-compare">
-                <VersionTile label="Local build" value={LOCAL_BUILD} hash={`${GIT_HASH}${GIT_DIRTY ? '*' : ''}`} />
-                <span className={`dev-compare-arrow ${tone}`}><Icon name="arrow_forward" size={18} /></span>
-                <VersionTile label="Device" value={buildInfo} stale={deviceReachable && !inSync} />
-            </div>
+            {!collapsed && (
+                <div id="dev-body" className="dev-body">
+                <div className="dev-compare">
+                    <VersionTile label="Local build" value={LOCAL_BUILD} hash={`${GIT_HASH}${GIT_DIRTY ? '*' : ''}`} />
+                    <span className={`dev-compare-arrow ${tone}`}><Icon name="arrow_forward" size={18} /></span>
+                    <VersionTile label="Device" value={buildInfo} stale={deviceReachable && !inSync} />
+                </div>
 
-            <div className="dev-pipeline">
-                {STEPS.map((step, i) => (
-                    <Fragment key={step.key}>
-                        {i > 0 && <span className="dev-pipe-link" aria-hidden="true" />}
-                        <StepCard
-                            step={step}
-                            state={stateOf(step.key)}
-                            busy={busy}
-                            copied={copied}
-                            onCopy={copy}
-                            onRun={() => runCmd(step.endpoint, step.key)}
-                        />
-                    </Fragment>
-                ))}
-            </div>
+                <div className="dev-pipeline">
+                    {STEPS.map((step, i) => (
+                        <Fragment key={step.key}>
+                            {i > 0 && <span className="dev-pipe-link" aria-hidden="true" />}
+                            <StepCard
+                                step={step}
+                                state={stateOf(step.key)}
+                                busy={busy}
+                                copied={copied}
+                                onCopy={copy}
+                                onRun={() => runCmd(step.endpoint, step.key)}
+                            />
+                        </Fragment>
+                    ))}
+                </div>
 
-            {output && (
-                <div className="dev-log">
-                    <div className="dev-log-bar">
-                        <button className="dev-toggle-output" onClick={() => setShowOutput(v => !v)} aria-expanded={showOutput}>
-                            <Icon name="chevron_right" size={14} className={`fx-section-chevron${showOutput ? ' open' : ''}`} />
-                            Build log
-                        </button>
-                        <button className="icon-btn" onClick={() => copy(output, 'log')} title="Copy log" aria-label="Copy log">
-                            <Icon name={copied === 'log' ? 'check_circle' : 'content_copy'} size={14} />
-                        </button>
-                    </div>
-                    {showOutput && (
-                        <div ref={termRef} className={termClass}>
-                            {logLines.map((line, i) => <div key={i} className={`dev-line ${lineClass(line)}`}>{line || '\u00a0'}</div>)}
+                {output && (
+                    <div className="dev-log">
+                        <div className="dev-log-bar">
+                            <button className="dev-toggle-output" onClick={() => setShowOutput(v => !v)} aria-expanded={showOutput}>
+                                <Icon name="chevron_right" size={14} className={`fx-section-chevron${showOutput ? ' open' : ''}`} />
+                                Build log
+                            </button>
+                            <button className="icon-btn" onClick={() => copy(output, 'log')} title="Copy log" aria-label="Copy log">
+                                <Icon name={copied === 'log' ? 'check_circle' : 'content_copy'} size={14} />
+                            </button>
                         </div>
-                    )}
+                        {showOutput && (
+                            <div ref={termRef} className={termClass}>
+                                {logLines.map((line, i) => <div key={i} className={`dev-line ${lineClass(line)}`}>{line || '\u00a0'}</div>)}
+                            </div>
+                        )}
+                    </div>
+                )}
                 </div>
             )}
         </section>

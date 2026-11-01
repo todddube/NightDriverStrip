@@ -132,7 +132,7 @@ relative URLs / `window.location.host`. The Vite dev server also exposes `POST /
 | `src/components/home/designer/effect/effect.jsx` | Effect card |
 | `src/components/home/config/configDialog.jsx` | Per-effect / device settings dialog |
 | `src/components/home/statistics/` | Stats panel and charts |
-| `src/components/home/DevBanner.jsx` | Dev "Deploy" card: local-vs-device build comparison, Build → Upload pipeline (per-step status/progress, "Build & Upload"), colorized log. Full panel only under `npm start`; compact version check on the device |
+| `src/components/home/DevBanner.jsx` | Dev "Deploy" card: local-vs-device build comparison, Build → Upload pipeline (per-step status/progress, "Build & Upload"), colorized log. Collapsible (state remembered in `devBannerConfig`; auto-expands when a run starts). Full panel only under `npm start`; compact version check on the device |
 | `src/components/App.jsx`, `src/components/home/lite/LiteView.jsx`, `src/util/uiMode.js` | `?ui=lite` / `?ui=full` (remembered in localStorage): lite is a minimal now-playing + Previous/Next page with no stats polling and no live preview |
 | `src/components/Icon.jsx` | SVG icon registry — add Material Icons `d` paths to `PATHS`, use `<Icon name="key" />` |
 | `src/util/categories.js` | Effect-name keyword → category mapping |

@@ -678,13 +678,17 @@ button.fx-section-header:hover .fx-section-title { color: var(--accent); }
 .dev-dismiss { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; }
 
 /* header */
-.dev-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-right: 28px; }
+.dev-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dev-collapse { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.dev-collapse:hover .dev-headline { color: var(--accent); }
+.dev-collapse:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+.dev-body { display: flex; flex-direction: column; gap: 14px; }
 .dev-status-ring {
   width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
   color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone) 45%, transparent);
 }
-.dev-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.dev-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .dev-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--text-dim); }
 .dev-headline { font-size: 15px; font-weight: 700; color: var(--text); }
 .dev-all { display: inline-flex; align-items: center; gap: 6px; }
