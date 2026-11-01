@@ -77,7 +77,8 @@ export default defineConfig({
             threshold:        0,
         }),
     ],
-    server: { port: 9000 },
+    // /__dev/build and /__dev/upload spawn shell commands: never expose them to the network.
+    server: { port: 9000, host: 'localhost' },
     build: {
         outDir: '../dist',
         rollupOptions: {

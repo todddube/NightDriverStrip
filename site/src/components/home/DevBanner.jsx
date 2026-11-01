@@ -13,7 +13,9 @@ const GIT_DIRTY   = __GIT_DIRTY__;
 const { hostname } = window.location;
 const IS_LOCALHOST = hostname === 'localhost' || hostname === '127.0.0.1';
 const IS_DEVICE    = /^192\.168\.\d+\.\d+$/.test(hostname) && !IS_LOCALHOST;
-const SHOW_BANNER  = IS_LOCALHOST || IS_DEVICE;
+// The full panel needs the Vite dev server's /__dev/* endpoints, so on localhost it only
+// shows under `npm start` (not `npm run local`). The compact panel is just a version check.
+const SHOW_BANNER  = IS_DEVICE || (IS_LOCALHOST && import.meta.env.DEV);
 
 const STEPS = [
     { key: 'build',  label: '1. Build site',     cmd: 'cd site && npm run build',              endpoint: '/__dev/build'  },
