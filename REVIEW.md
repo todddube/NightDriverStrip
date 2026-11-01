@@ -103,6 +103,13 @@ Not covered: effect algorithm quality, a full C++ audit, and testing on the live
 - **Deploy card**: DevBanner redesigned to match the app (version tiles, pipeline, status chips, progress bars, "Build & Upload", colorized log); verified with mocked endpoints in light and dark.
 - **Tooling fix**: `package.json` had drifted to `eslint@^4`; restored `eslint@^9` + `eslint-plugin-react@^7.37`, removed the legacy `.eslintrc`. `npm audit --omit=dev`: 0 vulnerabilities; the 6 remaining moderate findings are `minimatch` inside ESLint's dev tooling (fix is a breaking `--force`).
 
+## Done in the sixth pass (2026-11-01)
+
+- **Device-side lite mode** (firmware, compiled, **not yet flashed**): `liteUi` setting; `/` serves a tiny page, `/ws/frames` refuses new connections, `?ui=full` always reaches the full UI. +6.4 KB flash.
+- **Tested against the real board** (every change reversed; board verified identical to its baseline afterwards): saving a device setting (Celsius toggled on and off), the Reboot menu item (board went down and came back), drag-reorder, and the two config-erasing reset items (request shape only: `board=1&deviceConfig=1`, `board=1&effectsConfig=1`; intercepted, never sent).
+- **Drag-reorder bug fixed**: the container's `onDragOver` reset the drop target on every bubbled event, so a drop never had a target and nothing was sent. Cards now stop propagation, and dragging is only enabled in the new "rotation order" sort (in A–Z a reorder would be invisible).
+- **Mystery**: `~/.npm/_logs` shows `npm audit fix --force` ran 3× in `site/` at 10:34 local (not from Claude: none of its commands contained it). It downgrades `eslint` to ^4 and `eslint-plugin-react` to ^7.22 (what the leftover dev-only `minimatch` advisory suggests) and was committed once by mistake. The launcher is unknown (npm keeps only the last 10 logs); candidates are an editor extension/quick-fix or a terminal command. CLAUDE.md now says to check `git diff --stat` on those files before committing.
+
 ## Suggested order
 
 1. ~~P0 #1 + #2~~ done.

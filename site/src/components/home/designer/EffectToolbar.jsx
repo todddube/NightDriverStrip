@@ -54,7 +54,7 @@ const NavButton = ({ icon, label, onClick, disabled, active }) => (
 const EffectToolbar = ({
     effectCount, requestRunning, saveInterval, navigate, sync,
     shuffle, setShuffle, search, setSearch,
-    groupByCategory, setGroupByCategory, gridLayout, setGridLayout,
+    groupByCategory, setGroupByCategory, gridLayout, setGridLayout, sortBy, setSortBy,
 }) => (
     <div className="effects-header">
         <IntervalEditor saveInterval={saveInterval} />
@@ -91,6 +91,12 @@ const EffectToolbar = ({
         <button className={`icon-btn${groupByCategory ? ' active' : ''}`} onClick={() => setGroupByCategory(v => !v)}
             title="Group by category" aria-label="Group by category" aria-pressed={groupByCategory}>
             <Icon name="label" />
+        </button>
+        <button className={`icon-btn${sortBy === 'order' ? ' active' : ''}`}
+            onClick={() => setSortBy(sortBy === 'order' ? 'name' : 'order')}
+            title={sortBy === 'order' ? 'Sorted by rotation order (drag to reorder). Click for A–Z' : 'Sorted A–Z. Click for rotation order (enables drag to reorder)'}
+            aria-label="Sort by rotation order" aria-pressed={sortBy === 'order'}>
+            <Icon name="sort" />
         </button>
         <button className="icon-btn" onClick={() => setGridLayout(v => !v)}
             title="Toggle layout" aria-label="Toggle layout">

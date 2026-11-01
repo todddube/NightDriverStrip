@@ -4,7 +4,7 @@ import ConfigDialog from '../../config/configDialog';
 import { EffectsContext } from '../../../../context/effectsContext';
 import { getEffectCategory, getCategory } from '../../../../util/categories';
 
-const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning, gridLayout, onDragStart, onDragOver }) => {
+const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning, gridLayout, reorderable = false, onDragStart, onDragOver }) => {
     const { activeInterval, remainingInterval, pinnedEffect, currentEffect } = useContext(EffectsContext);
     const [progress, setProgress] = useState(0);
     const [cfgOpen, setCfgOpen] = useState(false);
@@ -35,7 +35,7 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
                 className={cls}
                 aria-current={selected ? 'true' : undefined}
                 style={hueStyle}
-                draggable
+                draggable={reorderable}
                 onDragStart={e => onDragStart(e, effectIndex)}
                 onDragOver={e => onDragOver(e, effectIndex)}
             >
@@ -89,7 +89,7 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
             className={cls}
                 aria-current={selected ? 'true' : undefined}
             style={hueStyle}
-            draggable
+            draggable={reorderable}
             onDragStart={e => onDragStart(e, effectIndex)}
             onDragOver={e => onDragOver(e, effectIndex)}
         >

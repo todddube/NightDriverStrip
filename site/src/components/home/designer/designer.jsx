@@ -12,12 +12,15 @@ const DesignerPanel = ({ open, addNotification }) => {
     const { requestRunning, navigateTo, effectEnable, moveEffect, saveInterval, navigate, sync } = useEffectActions(addNotification);
     const [search, setSearch] = useState('');
     const [prefs, setPref] = usePersistedPrefs('designerConfig',
-        { gridLayout: true, showDisabled: true, shuffle: false, groupByCategory: false });
-    const { gridLayout, showDisabled, shuffle, groupByCategory } = prefs;
+        { gridLayout: true, showDisabled: true, shuffle: false, groupByCategory: false, sortBy: 'name' });
+    const { gridLayout, showDisabled, shuffle, groupByCategory, sortBy } = prefs;
     const setGridLayout      = v => setPref('gridLayout', v);
     const setShowDisabled    = v => setPref('showDisabled', v);
     const setShuffle         = v => setPref('shuffle', v);
     const setGroupByCategory = v => setPref('groupByCategory', v);
+    const setSortBy          = v => setPref('sortBy', v);
+    // Dragging changes the device's rotation order, so it only makes sense when the grid shows that order.
+    const reorderable = sortBy === 'order' && !groupByCategory;
     const [dragging,   setDragging]   = useState(undefined);
     const [dropTarget, setDropTarget] = useState(undefined);
 
@@ -28,7 +31,7 @@ const DesignerPanel = ({ open, addNotification }) => {
     const sorted = effects
         .map((effect, idx) => ({ ...effect, origIdx: idx }))
         .filter(effect => !search || effect.name.toLowerCase().includes(searchLower))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .sort((a, b) => sortBy === 'order' ? a.origIdx - b.origIdx : a.name.localeCompare(b.name));
 
     // Enabled effects first, disabled ones in their own section below. Recomputed
     // on every sync, so toggling an effect moves it between sections immediately.
@@ -43,6 +46,7 @@ const DesignerPanel = ({ open, addNotification }) => {
         requestRunning,
         effectEnable,
         gridLayout,
+        reorderable,
     });
 
     const layoutClass = gridLayout ? 'effects-grid' : 'effects-list';
@@ -87,7 +91,7 @@ const DesignerPanel = ({ open, addNotification }) => {
                 <Effect
                     {...effectProps(effect)}
                     onDragStart={(e, i) => { setDragging(i); e.dataTransfer.setData('index', i); }}
-                    onDragOver={(e, i) => { e.preventDefault(); if (i !== undefined) setDropTarget(i); }}
+                    onDragOver={(e, i) => { e.preventDefault(); e.stopPropagation(); if (i !== undefined) setDropTarget(i); }}
                 />
             ))}
         </div>
@@ -105,6 +109,7 @@ const DesignerPanel = ({ open, addNotification }) => {
                 search={search} setSearch={setSearch}
                 groupByCategory={groupByCategory} setGroupByCategory={setGroupByCategory}
                 gridLayout={gridLayout} setGridLayout={setGridLayout}
+                sortBy={sortBy} setSortBy={setSortBy}
             />
 
             {sorted.length === 0 && (

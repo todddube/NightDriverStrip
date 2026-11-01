@@ -148,10 +148,24 @@ Device API is documented in `REST_API.md`. Endpoints used by the UI: `GET /effec
 - Modal dialogs render through `createPortal(..., document.body)` (a card with a transform would otherwise trap `position: fixed`).
 - Don't create "`Foo 2.jsx`" duplicates — they are Finder copy artifacts and get tracked by `git add -A` (see `REVIEW.md`).
 
+## Lite web UI (device side)
+
+`DeviceConfig::liteUi` (setting "Lite web UI", REST key `liteUi`, default off). When on, `GET /` and `/index.html` serve a
+~1.5 KB control page (`LiteUiPage` in `src/webserver.cpp`) instead of the embedded full UI, new `/ws/frames` connections are
+refused (`WebSocketServer` filter) and `FRAMES_SOCKET` reports false so the UI greys out Preview. `/?ui=full` always serves
+the full UI, so the setting can be switched back from the Device Settings dialog. The REST API is unaffected. The UI also has
+a client-only lite view (`?ui=lite`, see `util/uiMode.js`).
+
+## Effects panel ordering
+
+The grid is A–Z by default. Drag-to-reorder changes the device's rotation order, so it is only enabled in "rotation order"
+sort (toolbar sort button) and not while grouped by category.
+
 ## Conventions
 
 - OTA password is opt-in: `-DOTA_PASSWORD=\"x\"` in build flags + `upload_flags = --auth=x`. Off by default.
 - C++: follow `CONTRIBUTING.md` — match the style of the file/class you're in; keep changes small; no new template cleverness.
 - Don't commit `include/secrets.h` or `site/dist`.
+- Run `git diff --stat -- site/package.json site/package-lock.json` before committing: an external `npm audit fix --force` has twice downgraded `eslint` to ^4 (see REVIEW.md).
 - After changing firmware, build `pio run -e mesmerizer`; after changing UI, at minimum `cd site && npm run build`.
 - Swift review rule from global config does not apply (no Swift here).
