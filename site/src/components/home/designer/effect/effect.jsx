@@ -33,6 +33,7 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
         return (
             <div
                 className={cls}
+                aria-current={selected ? 'true' : undefined}
                 style={hueStyle}
                 draggable
                 onDragStart={e => onDragStart(e, effectIndex)}
@@ -46,7 +47,7 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
                     </span>
                 )}
 
-                <button className="ec-gear icon-btn" onClick={() => setCfgOpen(true)} title="Settings">
+                <button className="ec-gear icon-btn" onClick={() => setCfgOpen(true)} title="Settings" aria-label={`Settings for ${effect.name}`}>
                     <Icon name="settings" size={13} />
                 </button>
 
@@ -86,6 +87,7 @@ const Effect = ({ effect, effectIndex, effectEnable, navigateTo, requestRunning,
     return (
         <div
             className={cls}
+                aria-current={selected ? 'true' : undefined}
             style={hueStyle}
             draggable
             onDragStart={e => onDragStart(e, effectIndex)}

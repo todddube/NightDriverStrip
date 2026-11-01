@@ -2,7 +2,6 @@ import { useEffect, useState, useContext } from 'preact/hooks';
 import { StatsContext } from '../../../context/statsContext';
 import logoSrc from '../../../assets/lowreslogo.jpg';
 
-/* global __UI_BUILD__, __GIT_HASH__ */
 
 const SPLASH_DURATION = 5000; // ms
 

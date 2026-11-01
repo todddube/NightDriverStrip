@@ -91,9 +91,8 @@ const useHistory = (value, maxLen) => {
 };
 
 /* ── SystemMonitor ───────────────────────────────────────────────────────── */
-const SystemMonitor = ({ raw, heapSize, dmaSize, psRamSize, fsSize, fsUsed, codeSize, flashSize, maxSamples, refreshRate = 3 }) => {
-    if (!raw) return null;
-
+// Hooks below must run on every render, so the "no data yet" guard lives in the wrapper.
+const SystemMonitorBody = ({ raw, heapSize, dmaSize, psRamSize, maxSamples, refreshRate = 3 }) => {
     const c0       = raw.CPU_USED_CORE0 ?? 0;
     const c1       = raw.CPU_USED_CORE1 ?? 0;
     const heapUsed = heapSize  > 0 ? heapSize  - (raw.HEAP_FREE  ?? heapSize)  : 0;
@@ -152,5 +151,7 @@ const SystemMonitor = ({ raw, heapSize, dmaSize, psRamSize, fsSize, fsUsed, code
         </div>
     );
 };
+
+const SystemMonitor = props => (props.raw ? <SystemMonitorBody {...props} /> : null);
 
 export default SystemMonitor;

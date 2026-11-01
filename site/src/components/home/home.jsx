@@ -14,13 +14,15 @@ import { usePersistedPrefs } from '../../hook/usePersistedPrefs';
 import { readText, writeText } from '../../util/storage';
 import { applyTheme, getThemePref, saveThemePref, nextThemePref, resolveTheme, onSystemThemeChange } from '../../util/theme';
 
+const PREVIEW_MAX_MS = 5 * 60 * 1000;
+
 const THEME_UI = {
     system: { icon: 'brightness_auto', label: 'System theme' },
     light:  { icon: 'light_mode',      label: 'Light mode'   },
     dark:   { icon: 'dark_mode',       label: 'Dark mode'    },
 };
 
-const MainApp = () => {
+const MainApp = ({ onSwitchToLite }) => {
     const [themePref, setThemePref] = useState(getThemePref);
     const [, setSystemTick] = useState(0);   // re-render when the OS theme flips
     const [drawer,   setDrawer]   = useState(false);
@@ -50,6 +52,16 @@ const MainApp = () => {
             setSystemTick(t => t + 1);
         });
     }, [themePref]);
+
+    // The live preview streams every frame from the device (~40 points of core-0 CPU), so
+    // close it after a while and whenever the tab is hidden.
+    useEffect(() => {
+        if (!preview) return undefined;
+        const timer = setTimeout(() => setPreview(false), PREVIEW_MAX_MS);
+        const onHide = () => { if (document.hidden) setPreview(false); };
+        document.addEventListener('visibilitychange', onHide);
+        return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', onHide); };
+    }, [preview]);
 
     const cycleTheme = () => {
         const next = nextThemePref(themePref);
@@ -133,6 +145,12 @@ const MainApp = () => {
                         </button>
                         <span className="nav-label" style={{fontSize:'13px'}}>Preview</span>
                     </li>
+                    <li className="drawer-nav-item">
+                        <button className="icon-btn" onClick={onSwitchToLite} title="Switch to lite mode">
+                            <Icon name="speed" />
+                        </button>
+                        <span className="nav-label" style={{fontSize:'13px'}}>Lite mode</span>
+                    </li>
                     <li className="drawer-nav-item" onClick={e => setDevCtrl(devCtrl ? null : e.currentTarget)}>
                         <button className="icon-btn" title="Device control">
                             <Icon name="power" />
@@ -160,7 +178,7 @@ const MainApp = () => {
             <main className={`main-content${drawer ? ' open' : ''}`}>
                 {deviceError && <div className="device-error" role="status">Can't reach the device — retrying. ({deviceError})</div>}
                 <DevBanner />
-                <StatsPanel  open={showStats}  addNotification={addNotification} />
+                <StatsPanel  open={showStats} />
                 <DesignerPanel open={showDesign} addNotification={addNotification} />
             </main>
 

@@ -1,10 +1,10 @@
 import { useContext, useState, useRef, useEffect } from 'preact/hooks';
+import { Fragment } from 'preact';
 import Icon from '../Icon';
 import { StatsContext } from '../../context/statsContext';
 import { readText, writeText } from '../../util/storage';
 import { address } from '../../espaddr';
 
-/* global __LOCAL_FIRMWARE_BUILD__, __GIT_HASH__, __GIT_DIRTY__ */
 const LOCAL_BUILD = __LOCAL_FIRMWARE_BUILD__;
 const GIT_HASH    = __GIT_HASH__;
 const GIT_DIRTY   = __GIT_DIRTY__;
@@ -18,14 +18,54 @@ const IS_DEVICE    = /^192\.168\.\d+\.\d+$/.test(hostname) && !IS_LOCALHOST;
 const SHOW_BANNER  = IS_DEVICE || (IS_LOCALHOST && import.meta.env.DEV);
 
 const STEPS = [
-    { key: 'build',  label: '1. Build site',     cmd: 'cd site && npm run build',              endpoint: '/__dev/build'  },
-    { key: 'upload', label: '2. Upload firmware', cmd: 'pio run -e mesmerizer --target upload', endpoint: '/__dev/upload' },
+    { key: 'build',  n: 1, title: 'Build site',      icon: 'build',        cmd: 'cd site && npm run build',              endpoint: '/__dev/build',  action: 'Build',  doing: 'Building…',  done: 'Built'    },
+    { key: 'upload', n: 2, title: 'Upload firmware', icon: 'cloud_upload', cmd: 'pio run -e mesmerizer --target upload', endpoint: '/__dev/upload', action: 'Upload', doing: 'Uploading…', done: 'Uploaded' },
 ];
 
-const BTN_LABELS = {
-    build:  { idle: '▶ Build',  running: '⟳ Building…',  success: '✓ Built',    error: '✗ Build Failed'  },
-    upload: { idle: '▲ Upload', running: '⟳ Uploading…', success: '✓ Uploaded', error: '✗ Upload Failed' },
-};
+const STATE_LABEL = { idle: 'Ready', running: 'Running', success: 'Done', error: 'Failed' };
+
+// Colour a build-log line by what it says.
+const lineClass = line =>
+    /error|failed|✗|traceback/i.test(line) ? 'err'
+    : /warn/i.test(line)                    ? 'warn'
+    : /success|✓|\bdone\b|built in/i.test(line) ? 'ok'
+    : '';
+
+const StepCard = ({ step, state, busy, copied, onRun, onCopy }) => (
+    <div className={`dev-step dev-step--${state}`}>
+        <div className="dev-step-head">
+            <span className="dev-step-icon"><Icon name={step.icon} size={20} /></span>
+            <div className="dev-step-title">
+                <span className="dev-step-n">STEP {step.n}</span>
+                <span className="dev-step-name">{step.title}</span>
+            </div>
+            <span className={`dev-chip dev-chip--${state}`}>
+                {state === 'success' && <Icon name="check_circle" size={13} />}
+                {state === 'error'   && <Icon name="error" size={13} />}
+                {STATE_LABEL[state]}
+            </span>
+        </div>
+        <div className="dev-progress" aria-hidden="true"><div className="dev-progress-bar" /></div>
+        <div className="dev-step-cmd">
+            <code title={step.cmd}>{step.cmd}</code>
+            <button className="icon-btn" onClick={() => onCopy(step.cmd, step.key)} title="Copy command" aria-label={`Copy ${step.title} command`}>
+                <Icon name={copied === step.key ? 'check_circle' : 'content_copy'} size={14} />
+            </button>
+        </div>
+        <button className="btn dev-step-run" disabled={busy} onClick={onRun}>
+            <Icon name={state === 'running' ? 'refresh' : 'play'} size={15} className={state === 'running' ? 'spin' : ''} />
+            {state === 'running' ? step.doing : state === 'success' ? `${step.done} · run again` : step.action}
+        </button>
+    </div>
+);
+
+const VersionTile = ({ label, value, hash, stale }) => (
+    <div className={`dev-ver${stale ? ' dev-ver--stale' : ''}`}>
+        <span className="dev-ver-label">{label}</span>
+        <span className="dev-ver-value">{value ?? '—'}</span>
+        {hash && <span className="dev-ver-hash">{hash}</span>}
+    </div>
+);
 
 const DevBanner = () => {
     const { buildInfo } = useContext(StatsContext);
@@ -76,16 +116,23 @@ const DevBanner = () => {
                 const m = buf.match(/__EXIT_(\d+)__\n?/);
                 if (m) {
                     setOutput(buf.replace(m[0], ''));
-                    setState(parseInt(m[1]) === 0 ? 'success' : 'error');
-                    return;
+                    const ok = parseInt(m[1]) === 0;
+                    setState(ok ? 'success' : 'error');
+                    return ok;
                 }
                 setOutput(buf);
             }
+            setState('error');   // stream ended without an exit marker
+            return false;
         } catch (e) {
             setOutput(prev => prev + `\nError: ${e.message}\n`);
             setState('error');
+            return false;
         }
     };
+
+    // Build, then upload only if the build succeeded.
+    const runAll = async () => { if (await runCmd(STEPS[0].endpoint, 'build')) await runCmd(STEPS[1].endpoint, 'upload'); };
 
     const termClass = [
         'dev-terminal',
@@ -121,78 +168,71 @@ const DevBanner = () => {
     }
 
     // ── Full panel when running via Vite dev server (localhost) ───────────────
-    return (
-        <div className={`dev-banner ${inSync ? 'dev-banner--sync' : 'dev-banner--drift'}`}>
+    const stateOf  = key => (key === 'build' ? buildState : uploadState);
+    const headline = !deviceReachable ? `Device at ${address} not reachable`
+                   : inSync           ? 'Device is up to date'
+                   :                    'Local build not deployed to device';
+    const tone     = inSync ? 'sync' : 'drift';
+    const logLines = output.split('\n');
 
-            {/* ── Header ── */}
-            <div className="dev-banner-row">
-                <span className={`dev-status-dot ${inSync ? 'sync' : 'drift'}`} />
-                <span className="dev-banner-title">
-                    {!deviceReachable
-                        ? `Localhost dev mode — device at ${IS_LOCALHOST ? address : hostname} not reachable`
-                        : inSync
-                            ? 'Localhost dev mode — device is up to date'
-                            : 'Localhost dev mode — local build not deployed to device'}
-                </span>
+    return (
+        <section className={`dev-banner dev-banner--${tone}`} aria-label="Deploy to device">
+            <header className="dev-head">
+                <span className={`dev-status-ring ${tone}`}><Icon name={inSync ? 'check_circle' : 'cloud_upload'} size={22} /></span>
+                <div className="dev-head-text">
+                    <span className="dev-eyebrow">DEV MODE · LOCALHOST</span>
+                    <span className="dev-headline">{headline}</span>
+                </div>
                 {GIT_DIRTY && <span className="dev-badge dirty">uncommitted changes</span>}
-                <button className="icon-btn dev-dismiss" onClick={dismiss} title="Dismiss">
+                <button className="btn primary dev-all" disabled={busy} onClick={runAll}>
+                    <Icon name="cloud_upload" size={16} /> Build &amp; Upload
+                </button>
+                <button className="icon-btn dev-dismiss" onClick={dismiss} title="Dismiss" aria-label="Dismiss">
                     <Icon name="close" size={14} />
                 </button>
+            </header>
+
+            <div className="dev-compare">
+                <VersionTile label="Local build" value={LOCAL_BUILD} hash={`${GIT_HASH}${GIT_DIRTY ? '*' : ''}`} />
+                <span className={`dev-compare-arrow ${tone}`}><Icon name="arrow_forward" size={18} /></span>
+                <VersionTile label="Device" value={buildInfo} stale={deviceReachable && !inSync} />
             </div>
 
-            {/* ── Version comparison ── */}
-            <div className="dev-versions">
-                <div className="dev-ver-row">
-                    <span className="dev-ver-label">Local build</span>
-                    <code className="dev-ver-val">
-                        {LOCAL_BUILD}
-                        <span className="dev-hash"> ({GIT_HASH}{GIT_DIRTY ? '*' : ''})</span>
-                    </code>
-                </div>
-                <div className="dev-ver-row">
-                    <span className="dev-ver-label">Device</span>
-                    <code className={`dev-ver-val${!inSync && deviceReachable ? ' dev-ver-stale' : ''}`}>
-                        {buildInfo ?? '—'}
-                    </code>
-                </div>
+            <div className="dev-pipeline">
+                {STEPS.map((step, i) => (
+                    <Fragment key={step.key}>
+                        {i > 0 && <span className="dev-pipe-link" aria-hidden="true" />}
+                        <StepCard
+                            step={step}
+                            state={stateOf(step.key)}
+                            busy={busy}
+                            copied={copied}
+                            onCopy={copy}
+                            onRun={() => runCmd(step.endpoint, step.key)}
+                        />
+                    </Fragment>
+                ))}
             </div>
 
-            {/* ── Commands: copy box + Copy + Run buttons ── */}
-            <div className="dev-cmds">
-                {STEPS.map(({ key, label, cmd, endpoint }) => {
-                    const state    = key === 'build' ? buildState : uploadState;
-                    const btnLabel = BTN_LABELS[key][state] ?? BTN_LABELS[key].idle;
-                    return (
-                        <div key={key} className="dev-cmd-row">
-                            <span className="dev-cmd-label">{label}</span>
-                            <code className="dev-cmd">{cmd}</code>
-                            <button className="dev-copy-btn" disabled={busy} onClick={() => copy(cmd, key)}>
-                                {copied === key ? '✓ Copied' : 'Copy'}
-                            </button>
-                            <button
-                                className={`dev-run-btn dev-run-btn--${state}`}
-                                disabled={busy}
-                                onClick={() => runCmd(endpoint, key)}
-                            >
-                                {btnLabel}
-                            </button>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* ── Output toggle ── */}
             {output && (
-                <button className="dev-toggle-output" onClick={() => setShowOutput(v => !v)}>
-                    {showOutput ? 'Hide output ▲' : 'Show output ▼'}
-                </button>
+                <div className="dev-log">
+                    <div className="dev-log-bar">
+                        <button className="dev-toggle-output" onClick={() => setShowOutput(v => !v)} aria-expanded={showOutput}>
+                            <Icon name="chevron_right" size={14} className={`fx-section-chevron${showOutput ? ' open' : ''}`} />
+                            Build log
+                        </button>
+                        <button className="icon-btn" onClick={() => copy(output, 'log')} title="Copy log" aria-label="Copy log">
+                            <Icon name={copied === 'log' ? 'check_circle' : 'content_copy'} size={14} />
+                        </button>
+                    </div>
+                    {showOutput && (
+                        <div ref={termRef} className={termClass}>
+                            {logLines.map((line, i) => <div key={i} className={`dev-line ${lineClass(line)}`}>{line || '\u00a0'}</div>)}
+                        </div>
+                    )}
+                </div>
             )}
-
-            {/* ── Streaming terminal ── */}
-            {showOutput && output && (
-                <div ref={termRef} className={termClass}>{output}</div>
-            )}
-        </div>
+        </section>
     );
 };
 

@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import MainApp from './components/home/home';
+import App from './components/App';
 import { EffectsProvider } from './context/effectsContext';
 import { StatsProvider } from './context/statsContext';
 import { applyTheme, getThemePref } from './util/theme';
@@ -11,7 +11,7 @@ const root = createRoot(document.getElementById('root'));
 root.render(
     <StatsProvider>
         <EffectsProvider>
-            <MainApp/>
+            <App/>
         </EffectsProvider>
     </StatsProvider>
 );

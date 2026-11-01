@@ -5,11 +5,10 @@ import { StatsContext } from '../../../context/statsContext';
 import { getJson } from '../../../api/device';
 import { usePersistedPrefs } from '../../../hook/usePersistedPrefs';
 
-/* global __UI_BUILD__, __GIT_HASH__ */
 
 const fmtBytes = b => (!b || b <= 0) ? '0' : b >= 1048576 ? `${(b/1048576).toFixed(1)} MB` : `${(b/1024).toFixed(0)} KB`;
 
-const StatsPanel = ({ open, addNotification }) => {
+const StatsPanel = ({ open }) => {
     const [rawData,      setRawData]      = useState(null);
     const [prefs, setPref] = usePersistedPrefs('statsConfig', { statsRefreshRate: 3, maxSamples: 50 });
     const refreshRate = prefs.statsRefreshRate;
@@ -83,10 +82,6 @@ const StatsPanel = ({ open, addNotification }) => {
                     heapSize={heapSize}
                     dmaSize={dmaSize}
                     psRamSize={psRamSize}
-                    fsSize={fsSize}
-                    fsUsed={fsUsed}
-                    codeSize={codeSize}
-                    flashSize={flashSize}
                     maxSamples={maxSamples}
                     refreshRate={refreshRate}
                   />

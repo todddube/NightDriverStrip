@@ -212,7 +212,7 @@ const ConfigDialog = ({ heading, effectIndex, open, setOpen, saveCallback }) => 
     const settingsPath = `/settings${effectIndex !== undefined ? '/effect' : ''}`;
     const [content,       setContent]       = useState(null);
     const [saveData,      setSaveData]      = useState({});
-    const [errorFields,   setErrorFields]   = useState(new Set());
+    const [, setErrorFields]   = useState(new Set());
     const [disableSubmit, setDisableSubmit] = useState(false);
     const [saveError,     setSaveError]     = useState(null);
 

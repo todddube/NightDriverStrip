@@ -21,7 +21,7 @@ const PreviewDialog = ({ open, onClose }) => {
         if (!ws.current) return;
         ws.current.onmessage = event => {
             if (!open) return;
-            try { setFrame(new Uint8Array(event.data)); } catch (_) {}
+            try { setFrame(new Uint8Array(event.data)); } catch { /* ignore a malformed frame */ }
         };
     }, [open, reconnect]);
 
