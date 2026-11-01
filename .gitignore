@@ -33,3 +33,12 @@ WebInstaller/manifests/**
 WebInstaller/web_projects.json
 x.cc
 xtest.cpp
+
+# Finder duplicate artifacts ("Foo 2.jsx"); extension-scoped so "Release 2.0.md" is not caught
+* [0-9].jsx
+* [0-9].css
+* [0-9].js
+* [0-9].h
+* [0-9].json
+* [0-9].piobkp
+site/.env.local
